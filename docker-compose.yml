@@ -1,0 +1,39 @@
+# Local full stack: docker compose up --build, then seed once:
+#   docker compose exec api node dist/db/seed.js
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: karibu
+    ports: ['5432:5432']
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 3s
+      retries: 20
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/karibu
+      WEB_URL: http://localhost:3000
+      COOKIE_SECRET: change-me-to-a-long-random-string-0001
+      MIGRATE_ON_START: 'true'
+      EXPOSE_DEV_SECRETS: 'true'
+      EARLY_ACCESS: 'true'
+      STORAGE_LOCAL_DIR: /data/uploads
+    volumes: [uploads:/data/uploads]
+    depends_on: { db: { condition: service_healthy } }
+    ports: ['4000:4000']
+
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    environment:
+      API_URL: http://api:4000
+    depends_on: [api]
+    ports: ['3000:3000']
+
+volumes:
+  pgdata:
+  uploads:

@@ -1,0 +1,17 @@
+{
+  "name": "karibu",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Karibu: verified travel information for East Africa (Enkop Intelligence)",
+  "scripts": {
+    "dev:api": "pnpm --filter @karibu/api dev",
+    "dev:web": "pnpm --filter @karibu/web dev",
+    "db:migrate": "pnpm --filter @karibu/api migrate",
+    "db:seed": "pnpm --filter @karibu/api seed",
+    "test": "pnpm --filter @karibu/api test",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": { "node": ">=22" },
+  "packageManager": "pnpm@10.28.0"
+}

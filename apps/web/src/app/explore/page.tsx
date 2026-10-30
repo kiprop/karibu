@@ -1,0 +1,165 @@
+import Link from 'next/link';
+import { api } from '@/lib/server-api';
+import { AMENITY_LABEL, CATEGORY_LABEL, type Category, type ListingCard as L } from '@/lib/types';
+import { ListingCard } from '@/components/ListingCard';
+import { Empty } from '@/components/bits';
+import { ExploreMap } from './ExploreMap';
+
+export const metadata = { title: 'Explore' };
+
+type SP = Record<string, string | undefined>;
+
+const AMENITY_FILTERS: Record<string, string[]> = {
+  stay: ['hot_water', 'wifi', 'power_backup', 'pool', 'family_rooms', 'breakfast'],
+  safari: ['pop_top_roof', 'window_seats', 'park_fees_included', 'vehicle_charging'],
+  transport: ['airport_pickup'],
+};
+
+function qs(base: SP, patch: SP) {
+  const u = new URLSearchParams();
+  for (const [k, v] of Object.entries({ ...base, ...patch })) if (v) u.set(k, v);
+  u.delete('page');
+  return `/explore?${u.toString()}`;
+}
+
+export default async function Explore({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const raw = await searchParams;
+  const sp: SP = {};
+  for (const [k, v] of Object.entries(raw)) if (k !== 'amenity') sp[k] = Array.isArray(v) ? v[0] : v;
+  // Checkbox filters arrive as repeated ?amenity=… values; the API takes one comma-separated list.
+  const picked = [raw.amenity].flat().filter(Boolean) as string[];
+  if (picked.length) sp.amenities = picked.join(',');
+  const view = sp.view === 'map' ? 'map' : 'list';
+  const params = new URLSearchParams();
+  for (const k of ['q', 'country', 'city', 'category', 'subtype', 'budget', 'minLevel', 'priceMax', 'amenities', 'sort', 'page']) if (sp[k]) params.set(k, sp[k]!);
+  params.set('pageSize', view === 'map' ? '50' : '24');
+  const [data, meta, cities] = await Promise.all([
+    api<{ total: number; page: number; pageSize: number; featured: L[]; results: L[] }>(`/listings?${params}`),
+    api<{ categories: Record<Category, string[]> }>('/meta'),
+    api<{ cities: { slug: string; name: string; isLive: boolean; listingCount: number }[] }>('/cities?country=KE'),
+  ]);
+  const cat = sp.category as Category | undefined;
+  const amen = new Set((sp.amenities ?? '').split(',').filter(Boolean));
+  const page = data.page;
+  const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
+  const featuredIds = new Set(data.featured.map((f) => f.id));
+
+  return (
+    <div className="container-k py-8">
+      <h1 className="font-display text-3xl font-extrabold">{cat ? CATEGORY_LABEL[cat] : sp.q ? `Results for “${sp.q}”` : 'Explore East Africa'}</h1>
+      <p className="mt-1 text-muted">Every listing here was checked by our team before it appeared. {data.total} found.</p>
+
+      <nav aria-label="Categories" className="mt-5 flex gap-2 overflow-x-auto pb-1">
+        <Link href={qs(sp, { category: undefined, subtype: undefined, amenities: undefined })} className={`pill ${!cat ? 'pill-on' : ''}`}>All</Link>
+        {(Object.keys(CATEGORY_LABEL) as Category[]).map((c) => (
+          <Link key={c} href={qs(sp, { category: c, subtype: undefined, amenities: undefined })} className={`pill ${cat === c ? 'pill-on' : ''}`} aria-current={cat === c ? 'page' : undefined}>
+            {CATEGORY_LABEL[c]}
+          </Link>
+        ))}
+      </nav>
+
+      <div className="mt-6 grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <form action="/explore" className="card flex h-fit flex-col gap-4 p-4" aria-label="Filters">
+          {cat ? <input type="hidden" name="category" value={cat} /> : null}
+          <input type="hidden" name="view" value={view} />
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="f-q" className="label">Search</label>
+            <input id="f-q" name="q" defaultValue={sp.q} className="input" placeholder="Name, park, area" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="f-city" className="label">Destination</label>
+            <select id="f-city" name="city" defaultValue={sp.city ?? ''} className="input">
+              <option value="">Anywhere in Kenya</option>
+              {cities.cities.filter((c) => c.isLive).map((c) => (
+                <option key={c.slug} value={c.slug}>{c.name} ({c.listingCount})</option>
+              ))}
+            </select>
+          </div>
+          {cat ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="f-sub" className="label">Type</label>
+              <select id="f-sub" name="subtype" defaultValue={sp.subtype ?? ''} className="input">
+                <option value="">Any type</option>
+                {meta.categories[cat].map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}
+              </select>
+            </div>
+          ) : null}
+          {!cat || cat === 'stay' ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="f-budget" className="label">Budget</label>
+              <select id="f-budget" name="budget" defaultValue={sp.budget ?? ''} className="input">
+                <option value="">Any budget</option>
+                <option value="budget">Budget</option>
+                <option value="mid">Mid-range</option>
+                <option value="premium">Premium</option>
+              </select>
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="f-level" className="label">Verification</label>
+            <select id="f-level" name="minLevel" defaultValue={sp.minLevel ?? ''} className="input">
+              <option value="">Any verified</option>
+              <option value="2">Licensed or better</option>
+              <option value="3">Visited by our team</option>
+            </select>
+          </div>
+          {cat && AMENITY_FILTERS[cat] ? (
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="label mb-1">Must have</legend>
+              {AMENITY_FILTERS[cat].map((a) => (
+                <label key={a} className="flex items-center gap-2 text-[14px]">
+                  <input type="checkbox" name="amenity" value={a} defaultChecked={amen.has(a)} className="h-4 w-4 accent-[rgb(var(--brand))]" />
+                  {AMENITY_LABEL[a]}
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="f-sort" className="label">Sort by</label>
+            <select id="f-sort" name="sort" defaultValue={sp.sort ?? 'relevance'} className="input">
+              <option value="relevance">Best match</option>
+              <option value="rating">Highest rated</option>
+              <option value="price">Lowest price</option>
+              <option value="newest">Newest</option>
+            </select>
+          </div>
+          <button className="btn-dark" type="submit">Show results</button>
+          <Link href="/explore" className="text-center text-[14px] font-bold text-muted">Clear filters</Link>
+        </form>
+
+        <div className="min-w-0">
+          <div className="mb-4 flex justify-end gap-2" role="group" aria-label="View">
+            <Link href={qs(sp, { view: undefined })} className={`pill ${view === 'list' ? 'pill-on' : ''}`}>List</Link>
+            <Link href={qs(sp, { view: 'map' })} className={`pill ${view === 'map' ? 'pill-on' : ''}`}>Map</Link>
+          </div>
+          {data.featured.length && page === 1 && view === 'list' ? (
+            <section aria-label="Featured" className="mb-8">
+              <p className="eyebrow mb-3">Featured · paid placement, still verified</p>
+              <div className="grid gap-6 sm:grid-cols-2">
+                {data.featured.map((l) => <ListingCard key={l.id} l={l} />)}
+              </div>
+            </section>
+          ) : null}
+          {data.results.length === 0 ? (
+            <Empty title="Nothing matches yet" body="Try fewer filters or another destination. We add verified businesses every week.">
+              <Link href="/recommend" className="font-bold text-brand">Know a great business? Recommend it</Link>
+            </Empty>
+          ) : view === 'map' ? (
+            <ExploreMap items={data.results.map((l) => ({ id: l.id, lat: l.lat, lon: l.lon, label: l.title, href: `/listing/${l.slug}`, sub: `${l.city} · ${l.subtype}` }))} />
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {data.results.filter((l) => !featuredIds.has(l.id) || page > 1).map((l) => <ListingCard key={l.id} l={l} />)}
+            </div>
+          )}
+          {view === 'list' && pages > 1 ? (
+            <nav aria-label="Pages" className="mt-8 flex items-center justify-center gap-3">
+              {page > 1 ? <Link className="pill" href={`${qs(sp, {})}&page=${page - 1}`}>Previous</Link> : null}
+              <span className="text-[14px] text-muted">Page {page} of {pages}</span>
+              {page < pages ? <Link className="pill" href={`${qs(sp, {})}&page=${page + 1}`}>Next</Link> : null}
+            </nav>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}

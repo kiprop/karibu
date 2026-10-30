@@ -1,0 +1,92 @@
+# Karibu
+
+Verified travel information for East Africa. Travellers find stays, game drives, transport, guides, experiences and events, check that a business is real, and message it directly on WhatsApp. Karibu never handles payments between travellers and businesses. Businesses can pay Karibu a subscription for more listings and labelled visibility, but verification is free and can't be bought.
+
+An Enkop Intelligence venture. Product spec: the Karibu PRD v1.0 (Claude doc).
+
+## What's in the MVP
+
+**Travellers (guest or signed in)**
+- Search and filter by country, destination, category, type, budget, price, amenities, verification level and distance; list and map views.
+- Listing pages with category facts (park, vehicle, hot water hours, Wi-Fi speed and so on), verification badge, freshness and ratings (shown once there are 3+ reviews).
+- Contact on WhatsApp with a prefilled message and a reference code (K-XXXXX); optional reminder to review.
+- Safety tools: operator check against a watchlist, fair price guide, emergency numbers, safe meetup guide, reporting.
+- Signed in (email magic link, or Google): favourites, trip planner by day with a route map and share link, enquiry history, reviews tied to a real enquiry, recommendations. Guest favourites and enquiries merge into the account on sign-in.
+
+**Businesses**
+- Phone sign-in by SMS code, business profile, listings for each category with a review workflow, private document upload, monthly "still accurate" confirmation, enquiry stats with CSV export, review replies.
+- Plans: Free (1 listing), Pro ($15, 5 listings), Featured ($45, labelled placement). Paystack checkout once early access ends.
+
+**Reviewers and admins**
+- Review queue with documents, verification level decision (1 phone, 2 documents, 3 visit) and notes; reports with 4 hour (safety and scam) and 2 day targets; listing and vendor suspension; watchlist, advisories, price checks and stale content endpoints.
+
+## Architecture
+
+```
+apps/web   Next.js 15 (App Router, React 19, Tailwind, Leaflet)   :3000
+             └─ /api/*  proxied to the API, so the session cookie stays first-party
+apps/api   Fastify 5 + TypeScript + zod + pg                      :4000  (/v1/*)
+db/        SQL migrations: PostgreSQL 16 + PostGIS, pg_trgm, unaccent
+```
+
+Rules that matter for trust live in the database, so no code path can skip them:
+- `public_listings` view is the only thing public endpoints read: live status, vendor not suspended, verification current, minimum level per category (game drives and transport need level 2, private homes level 3), confirmed in the last 180 days.
+- A trigger enforces the listing state machine and writes every transition to `listing_events` with who and why.
+
+## Run it locally
+
+Needs Node 22, pnpm 10 and PostgreSQL 16 with PostGIS (or Docker).
+
+```bash
+pnpm install
+# Database: either your own Postgres with PostGIS, or
+docker compose up -d db
+createdb -h localhost -U postgres karibu   # skip if using docker compose (it creates it)
+
+pnpm db:migrate
+pnpm db:seed          # Kenya live, TZ/UG/RW/ET upcoming, 14 sample listings, admin@karibu.example
+
+pnpm dev:api          # http://localhost:4000/v1/health
+pnpm dev:web          # http://localhost:3000
+```
+
+Copy `apps/api/.env.example` and `apps/web/.env.example` if you need to change defaults.
+
+**Signing in during development.** Email and SMS go to the API console. With `EXPOSE_DEV_SECRETS` on (the default outside production) the sign-in screens also show the magic link or SMS code so you can click straight through.
+- Traveller: any email.
+- Business: any phone number, then create a business on /vendor.
+- Reviewer: `admin@karibu.example`, then open /admin.
+
+Full stack in Docker: `docker compose up --build`, then `docker compose exec api node dist/db/seed.js`.
+
+## Tests
+
+```bash
+pnpm test        # API integration tests against a real Postgres (creates karibu_test)
+pnpm typecheck
+pnpm build
+```
+
+CI (`.github/workflows/ci.yml`) runs typecheck, the API tests against PostGIS, and both builds.
+
+## Going to production
+
+- Set `NODE_ENV=production`, a long random `COOKIE_SECRET`, `WEB_URL`, and `EXPOSE_DEV_SECRETS=false`.
+- Email: `MAIL_PROVIDER=resend` and `MAIL_API_KEY`. SMS: `SMS_PROVIDER=africastalking`, `SMS_USERNAME`, `SMS_API_KEY`.
+- Payments: set `EARLY_ACCESS=false`, `PAYSTACK_SECRET_KEY` and plan codes, and point the Paystack webhook at `https://<api>/v1/webhooks/paystack`.
+- Map tiles: use a paid tile provider via `NEXT_PUBLIC_TILE_URL`.
+- Document storage: the local driver suits one server. Move to S3 or Cloudflare R2 before running more than one API instance.
+- Replace the seeded sample listings (`is_sample = true`) with real, verified businesses before launch.
+
+### Scaling path
+
+The API is stateless (sessions in Postgres), so it scales horizontally behind a load balancer. In order of need:
+1. Managed Postgres with PostGIS (Neon, Supabase, RDS, Crunchy) and a read replica for search.
+2. Object storage plus a CDN for photos and documents.
+3. A job queue (pg-boss on the same Postgres) for email, SMS, review reminders and re-verification reminders.
+4. A search engine (Meilisearch or Typesense) only when Postgres full-text plus trigram stops being enough, likely beyond tens of thousands of listings.
+5. New countries are data, not code: add rows to `countries`, `cities`, `country_pages` and `emergency_contacts`, and set `is_live`.
+
+## Not yet verified
+
+Docker images and compose (written, not built here), Google sign-in, real email and SMS delivery, and live Paystack checkout all need a first run with real credentials.
