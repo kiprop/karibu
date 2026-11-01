@@ -4,6 +4,11 @@
 #   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 #   docker compose -f docker-compose.prod.yml --env-file .env.production exec api node dist/db/seed.js
 # See DEPLOY.md.
+
+# Its own project name, so production never shares containers or the database volume with the local
+# development setup (docker-compose.yml), which would otherwise both be called "karibu" from the folder name.
+name: karibu-prod
+
 services:
   db:
     image: postgis/postgis:16-3.4
@@ -14,7 +19,8 @@ services:
       POSTGRES_DB: karibu
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U karibu']
+      # Checks the karibu login and database actually work, not just that Postgres is up.
+      test: ['CMD-SHELL', 'psql -U karibu -d karibu -c "select 1" >/dev/null']
       interval: 5s
       retries: 20
 

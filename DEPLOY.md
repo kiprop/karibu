@@ -98,6 +98,16 @@ crontab -e
 
 Copy the backups off the server too (for example to Cloudflare R2 or another cloud bucket). Uploaded business documents are in the `uploads` Docker volume; back that up as well.
 
+## Troubleshooting
+
+**The api keeps restarting.** Look at why: `docker compose -f docker-compose.prod.yml --env-file .env.production logs api --tail 40`.
+"password authentication failed" or "role karibu does not exist" means the database was created earlier with different
+credentials. If it holds nothing you need, remove it and start again (this deletes the production database):
+`docker compose -f docker-compose.prod.yml --env-file .env.production down -v`, then `up -d --build`.
+
+**"platform (linux/amd64) does not match" on a Mac.** Harmless: the PostGIS image runs through emulation on Apple
+Silicon. Linux servers don't show this.
+
 ## Useful commands
 
 ```bash
