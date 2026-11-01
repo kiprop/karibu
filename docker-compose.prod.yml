@@ -58,7 +58,9 @@ services:
 
   # Connects out to Cloudflare. In the Cloudflare dashboard, point karibu.enkopintelligence.com at http://web:3000.
   tunnel:
-    image: cloudflare/cloudflared:2024.12.2
+    # latest: Cloudflare only supports recent releases, and a pinned tag ages into "Unsupported".
+    image: cloudflare/cloudflared:latest
+    pull_policy: always
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
