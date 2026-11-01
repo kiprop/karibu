@@ -245,9 +245,11 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
           ) : null}
 
           <section id="paid" className="scroll-mt-28">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-display text-xl font-extrabold">What people paid</h2>
-              <Link href={`/safety/prices/add?listing=${l.slug}`} className="text-[14px] font-bold text-brand underline">I paid…</Link>
+              {l.paid ? (
+                <Link href={`/safety/prices/add?listing=${l.slug}`} className="btn-outline h-10 text-[14px]"><Icon name="tag" size={16} />Add what you paid</Link>
+              ) : null}
             </div>
             {l.paid ? (
               <>
@@ -265,7 +267,16 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
                 </ul>
               </>
             ) : (
-              <p className="mt-1 text-[14px] text-muted">No one has shared what they paid here yet. If you’ve used this business, your price helps the next person know the going rate. No account needed.</p>
+              <>
+              <div className="mt-3 flex flex-col items-start gap-3 rounded-2xl border border-dashed border-line p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-bold">No prices shared yet</p>
+                  <p className="text-[14px] text-muted">Used this business? Your price helps the next person know the going rate.</p>
+                </div>
+                <Link href={`/safety/prices/add?listing=${l.slug}`} className="btn-outline shrink-0"><Icon name="tag" size={18} />Add what you paid</Link>
+              </div>
+              <p className="mt-2 text-[13px] text-muted">Takes about 20 seconds. No account needed.</p>
+              </>
             )}
           </section>
 
