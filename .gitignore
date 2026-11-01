@@ -6,3 +6,6 @@ dist
 coverage
 uploads
 *.log
+.env.*
+!.env.example
+!.env.production.example

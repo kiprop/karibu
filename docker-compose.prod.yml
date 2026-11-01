@@ -1,0 +1,70 @@
+# Production: EI Karibu at https://karibu.enkopintelligence.com behind a Cloudflare Tunnel.
+# No ports are opened on the server; Cloudflare connects out to it and handles HTTPS.
+#   cp .env.production.example .env.production   (then fill it in)
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#   docker compose -f docker-compose.prod.yml --env-file .env.production exec api node dist/db/seed.js
+# See DEPLOY.md.
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: karibu
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: karibu
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U karibu']
+      interval: 5s
+      retries: 20
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://karibu:${POSTGRES_PASSWORD}@db:5432/karibu
+      WEB_URL: ${PUBLIC_URL:?set PUBLIC_URL}
+      CORS_ORIGINS: ${PUBLIC_URL}
+      COOKIE_SECRET: ${COOKIE_SECRET:?set COOKIE_SECRET}
+      MIGRATE_ON_START: 'true'
+      # Never true in production: it would show sign-in links and codes to whoever asks for them.
+      EXPOSE_DEV_SECRETS: 'false'
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL}
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-resend}
+      MAIL_FROM: ${MAIL_FROM:-EI Karibu <karibu@enkopintelligence.com>}
+      MAIL_API_KEY: ${MAIL_API_KEY:-}
+      SMS_PROVIDER: ${SMS_PROVIDER:-console}
+      SMS_USERNAME: ${SMS_USERNAME:-}
+      SMS_API_KEY: ${SMS_API_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      EARLY_ACCESS: ${EARLY_ACCESS:-true}
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
+      STORAGE_LOCAL_DIR: /data/uploads
+    volumes: [uploads:/data/uploads]
+    depends_on: { db: { condition: service_healthy } }
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_TILE_URL: ${NEXT_PUBLIC_TILE_URL:-https://tile.openstreetmap.org/{z}/{x}/{y}.png}
+        NEXT_PUBLIC_TILE_ATTRIBUTION: ${NEXT_PUBLIC_TILE_ATTRIBUTION:-&copy; OpenStreetMap contributors}
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:4000
+    depends_on: [api]
+
+  # Connects out to Cloudflare. In the Cloudflare dashboard, point karibu.enkopintelligence.com at http://web:3000.
+  tunnel:
+    image: cloudflare/cloudflared:2024.12.2
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on: [web]
+
+volumes:
+  pgdata:
+  uploads:

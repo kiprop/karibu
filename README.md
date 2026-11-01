@@ -94,6 +94,9 @@ CI (`.github/workflows/ci.yml`) runs typecheck, the API tests against PostGIS, a
 
 ## Going to production
 
+Step-by-step deployment to `karibu.enkopintelligence.com` with Docker and a Cloudflare Tunnel: see **[DEPLOY.md](DEPLOY.md)**.
+
+
 - Set `NODE_ENV=production`, a long random `COOKIE_SECRET`, `WEB_URL`, and `EXPOSE_DEV_SECRETS=false`. Serve over HTTPS and leave `COOKIE_SECURE` unset (the compose file sets it to false only for plain-http localhost).
 - Email: `MAIL_PROVIDER=resend` and `MAIL_API_KEY`. SMS: `SMS_PROVIDER=africastalking`, `SMS_USERNAME`, `SMS_API_KEY`.
 - Payments: set `EARLY_ACCESS=false`, `PAYSTACK_SECRET_KEY` and plan codes, and point the Paystack webhook at `https://<api>/v1/webhooks/paystack`.

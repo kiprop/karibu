@@ -182,14 +182,17 @@ export async function seed() {
       );
     }
     const admin = await c.query(
-      `INSERT INTO users (email, display_name, role) VALUES ('admin@karibu.example', 'Karibu Admin', 'admin')
+      `INSERT INTO users (email, display_name, role, email_verified_at) VALUES ($1, 'Karibu Admin', 'admin', now())
        ON CONFLICT (email) DO UPDATE SET role = 'admin' RETURNING id`,
+      // Production: set ADMIN_EMAIL to a real inbox you can sign in with.
+      [(process.env.ADMIN_EMAIL ?? 'admin@karibu.example').trim().toLowerCase()],
     );
     const adminId = admin.rows[0].id;
     await c.query(`SELECT set_config('app.actor', $1, true)`, [adminId]);
 
     let n = 0;
-    for (const l of listings) {
+    // SEED_SAMPLES=false skips the clearly-labelled sample businesses (for a live site with real ones).
+    for (const l of process.env.SEED_SAMPLES === 'false' ? [] : listings) {
       n++;
       const slug = l.vendor.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const phone = `+2547000001${String(n).padStart(2, '0')}`;
