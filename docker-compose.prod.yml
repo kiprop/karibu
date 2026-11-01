@@ -29,7 +29,9 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://karibu:${POSTGRES_PASSWORD}@db:5432/karibu
+      # Local container by default. For Supabase, set DATABASE_URL (session pooler) and DATABASE_SSL=require in .env.production.
+      DATABASE_URL: ${DATABASE_URL:-postgres://karibu:${POSTGRES_PASSWORD}@db:5432/karibu}
+      DATABASE_SSL: ${DATABASE_SSL:-off}
       WEB_URL: ${PUBLIC_URL:?set PUBLIC_URL}
       CORS_ORIGINS: ${PUBLIC_URL}
       COOKIE_SECRET: ${COOKIE_SECRET:?set COOKIE_SECRET}

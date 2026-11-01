@@ -8,7 +8,21 @@ pg.types.setTypeParser(20, (v) => Number(v));
 // numeric as number (ratings, prices)
 pg.types.setTypeParser(1700, (v) => Number(v));
 
-export const pool = new pg.Pool({ connectionString: config.databaseUrl, max: Number(process.env.PG_POOL_MAX ?? 10) });
+/**
+ * TLS for hosted databases (Supabase, Neon, RDS). DATABASE_SSL:
+ *   off (default, local Docker) · require (encrypted; use with Supabase) · verify (encrypted and checks DATABASE_CA_CERT, a PEM).
+ * When set, any sslmode in the URL is ignored so this setting wins (node-postgres would otherwise let the URL override it).
+ */
+function sslConfig(): { url: string; ssl: pg.PoolConfig['ssl'] } {
+  const mode = (process.env.DATABASE_SSL ?? 'off').toLowerCase();
+  if (mode === 'off') return { url: config.databaseUrl, ssl: undefined };
+  const u = new URL(config.databaseUrl);
+  u.searchParams.delete('sslmode');
+  if (mode === 'verify') return { url: u.toString(), ssl: { ca: process.env.DATABASE_CA_CERT, rejectUnauthorized: true } };
+  return { url: u.toString(), ssl: { rejectUnauthorized: false } };
+}
+const { url, ssl } = sslConfig();
+export const pool = new pg.Pool({ connectionString: url, ssl, max: Number(process.env.PG_POOL_MAX ?? 10) });
 
 export type Db = pg.Pool | pg.PoolClient;
 
