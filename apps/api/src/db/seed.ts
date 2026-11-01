@@ -230,19 +230,21 @@ export async function seed() {
       }
     }
 
-    // A pending vendor submission so the admin queue has work in it.
-    const pending = await c.query(
-      `INSERT INTO vendors (name, slug, country_code, whatsapp_e164) VALUES ('Gigiri Supper Club','gigiri-supper-club','KE','+254700000199')
-       ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
-    );
     const nbo = await c.query(`SELECT id FROM cities WHERE slug = 'nairobi'`);
-    const pend = await c.query(
-      `INSERT INTO listings (vendor_id, city_id, category, subtype, title, slug, summary, location, currency, price_from, price_to, price_unit, is_sample)
-       VALUES ($1,$2,'event','food','Rooftop supper club','rooftop-supper-club','Five-course tasting menu on a rooftop.', ST_SetSRID(ST_MakePoint(36.8044,-1.2335),4326)::geography,'KES',7000,9000,'per ticket',true)
-       ON CONFLICT (slug) DO NOTHING RETURNING id`,
-      [pending.rows[0].id, nbo.rows[0].id],
-    );
-    if (pend.rows[0]) await c.query(`UPDATE listings SET status = 'submitted' WHERE id = $1`, [pend.rows[0].id]);
+    if (process.env.SEED_SAMPLES !== 'false') {
+      // A pending vendor submission so the admin queue has work in it.
+      const pending = await c.query(
+        `INSERT INTO vendors (name, slug, country_code, whatsapp_e164) VALUES ('Gigiri Supper Club','gigiri-supper-club','KE','+254700000199')
+         ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+      );
+      const pend = await c.query(
+        `INSERT INTO listings (vendor_id, city_id, category, subtype, title, slug, summary, location, currency, price_from, price_to, price_unit, is_sample)
+         VALUES ($1,$2,'event','food','Rooftop supper club','rooftop-supper-club','Five-course tasting menu on a rooftop.', ST_SetSRID(ST_MakePoint(36.8044,-1.2335),4326)::geography,'KES',7000,9000,'per ticket',true)
+         ON CONFLICT (slug) DO NOTHING RETURNING id`,
+        [pending.rows[0].id, nbo.rows[0].id],
+      );
+      if (pend.rows[0]) await c.query(`UPDATE listings SET status = 'submitted' WHERE id = $1`, [pend.rows[0].id]);
+    }
 
     await c.query(`DELETE FROM country_pages WHERE country_code = 'KE'`);
     const pages: Array<[string, string, string, string[]]> = [
