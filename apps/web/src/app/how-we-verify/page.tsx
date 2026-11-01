@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 
 export const metadata = { title: 'How we verify' };
@@ -11,7 +12,8 @@ const LEVELS = [
 export default function HowWeVerify() {
   return (
     <div className="container-k max-w-3xl py-10">
-      <h1 className="font-display text-4xl font-extrabold">How we verify</h1>
+      <Breadcrumbs items={[{ label: 'Travel smart', href: '/safety' }, { label: 'How we verify' }]} />
+      <h1 className="mt-3 font-display text-4xl font-extrabold">How we verify</h1>
       <p className="mt-3 text-lg">Every business is checked before it appears. Verification is free, and no business can pay to get or keep a badge.</p>
       <div className="mt-8 grid gap-4">
         {LEVELS.map((l) => (

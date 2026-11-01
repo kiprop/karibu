@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { api } from '@/lib/server-api';
 import { AMENITY_LABEL, CATEGORY_LABEL, SETTLE_CATEGORIES, VISIT_CATEGORIES, isSettle, type Category, type ListingCard as L } from '@/lib/types';
@@ -52,6 +53,13 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
 
   return (
     <div className="container-k py-8">
+      {cat || mode === 'settle' || sp.q || sp.city ? (
+        <Breadcrumbs className="mb-4" items={[
+          mode === 'settle' ? { label: 'Settle in', href: '/settle' } : { label: 'Explore', href: '/explore' },
+          ...(sp.city ? [{ label: cities.cities.find((c) => c.slug === sp.city)?.name ?? sp.city, href: qs({}, { city: sp.city, mode: mode === 'settle' ? 'settle' : undefined }) }] : []),
+          { label: cat ? CATEGORY_LABEL[cat] : sp.q ? `“${sp.q}”` : sp.city ? 'Everything' : 'All' },
+        ]} />
+      ) : null}
       <div role="tablist" aria-label="What are you planning?" className="mb-5 inline-flex rounded-full bg-soft p-1 text-[14px] font-bold">
         {([['visit', 'Visiting'], ['settle', 'Staying long or moving home']] as const).map(([m, t]) => (
           <Link key={m} role="tab" aria-selected={mode === m} href={qs({ ...sp, category: undefined, subtype: undefined, amenities: undefined }, { mode: m === 'settle' ? 'settle' : undefined })}

@@ -1,5 +1,6 @@
 'use client';
 
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
@@ -93,7 +94,7 @@ export default function TripPage({ params }: { params: Promise<{ id: string }> }
 
   return (
     <div className="container-k py-8">
-      <Link href="/saved" className="inline-flex items-center gap-1 text-[14px] font-bold text-muted"><Icon name="back" size={16} /> Trips</Link>
+      <Breadcrumbs items={[{ label: 'Saved and trips', href: '/saved' }, { label: trip.title }]} />
       <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-extrabold">{trip.title}</h1>

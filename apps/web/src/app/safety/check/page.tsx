@@ -1,5 +1,6 @@
 'use client';
 
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { useState } from 'react';
 import { call } from '@/lib/client-api';
@@ -43,7 +44,7 @@ export default function CheckOperator() {
   const s = res ? STYLE[res.result] : null;
   return (
     <div className="container-k max-w-2xl py-10">
-      <Link href="/safety" className="inline-flex items-center gap-1 text-[14px] font-bold text-muted"><Icon name="back" size={16} />Travel smart</Link>
+      <Breadcrumbs items={[{ label: 'Travel smart', href: '/safety' }, { label: 'Check an operator' }]} />
       <h1 className="mt-3 font-display text-3xl font-extrabold">Check an operator</h1>
       <p className="mt-2 text-muted">About to pay a safari company, hotel agent or guide? Check them first. Works for any business, including ones we don’t list.</p>
       <form onSubmit={check} className="mt-6 flex flex-col gap-2">

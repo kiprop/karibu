@@ -1,5 +1,6 @@
 'use client';
 
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
@@ -20,7 +21,8 @@ function Verify() {
   }, [token]);
 
   return (
-    <div className="container-k max-w-lg py-16">
+    <div className="container-k max-w-lg py-10">
+      <Breadcrumbs className="mb-6" items={[{ label: 'My business', href: '/vendor' }, { label: 'Confirm email' }]} />
       {!state ? <p role="status">Confirming…</p> : state.ok ? (
         <>
           <span className="grid h-12 w-12 place-items-center rounded-full bg-teal text-white"><Icon name="check" strokeWidth={3} /></span>

@@ -1,5 +1,6 @@
 'use client';
 
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { call } from '@/lib/client-api';
@@ -28,8 +29,8 @@ export default function ExperienceModeration() {
 
   return (
     <div className="container-k py-8">
-      <Link href="/admin" className="text-[14px] font-bold text-muted">Review queue</Link>
-      <h1 className="mt-1 font-display text-3xl font-extrabold">Traveller experiences</h1>
+      <Breadcrumbs items={[{ label: 'Admin', href: '/admin' }, { label: 'Experiences' }]} />
+      <h1 className="mt-3 font-display text-3xl font-extrabold">Traveller experiences</h1>
       <p className="text-muted">Hide posts with personal details, abuse or clear fakes. Don’t hide a post because it’s negative; businesses can reply instead.</p>
       <div className="mt-4 flex gap-2">{VIEWS.map(([v, t]) => <button key={v} className={`pill ${view === v ? 'pill-on' : ''}`} onClick={() => setView(v)}>{t}</button>)}</div>
       {err ? <p className="mt-4 text-danger">{err}</p> : null}

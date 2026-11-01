@@ -1,5 +1,6 @@
 'use client';
 
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { call } from '@/lib/client-api';
@@ -36,7 +37,8 @@ export default function Plans() {
 
   return (
     <div className="container-k py-10">
-      <h1 className="font-display text-4xl font-extrabold">Plans for businesses</h1>
+      <Breadcrumbs items={[{ label: me.vendors?.length ? 'My business' : 'For businesses', href: '/vendor' }, { label: 'Plans' }]} />
+      <h1 className="mt-3 font-display text-4xl font-extrabold">Plans for businesses</h1>
       <p className="mt-2 max-w-2xl text-muted">Verification is free on every plan and can’t be bought. Paid plans add listings, tools and labelled visibility. Karibu never takes commission or handles traveller payments.</p>
       {early ? <p className="mt-4 inline-flex rounded-xl bg-teal-soft px-3 py-2 font-semibold text-teal">All plans are free during early access.</p> : null}
       <div className="mt-8 grid gap-4 md:grid-cols-3">

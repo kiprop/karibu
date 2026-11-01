@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { api, ApiError } from '@/lib/server-api';
@@ -155,12 +156,12 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
 
   return (
     <div className="container-k py-5">
-      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted">
-        <Link href={settle ? '/settle' : '/explore'} className="hover:underline">{settle ? 'Settle in' : 'Explore'}</Link><span aria-hidden="true">›</span>
-        <Link href={`/explore?city=${l.citySlug}`} className="hover:underline">{l.city}</Link><span aria-hidden="true">›</span>
-        <Link href={`/explore?city=${l.citySlug}&category=${l.category}`} className="hover:underline">{CATEGORY_LABEL[l.category]}</Link><span aria-hidden="true">›</span>
-        <span className="truncate text-ink">{l.title}</span>
-      </nav>
+      <Breadcrumbs items={[
+        { label: settle ? 'Settle in' : 'Explore', href: settle ? '/settle' : '/explore' },
+        { label: l.city, href: `/explore?city=${l.citySlug}` },
+        { label: CATEGORY_LABEL[l.category], href: `/explore?city=${l.citySlug}&category=${l.category}` },
+        { label: l.title },
+      ]} />
 
       <header className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 max-w-3xl">

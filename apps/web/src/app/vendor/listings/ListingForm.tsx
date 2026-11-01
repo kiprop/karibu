@@ -1,5 +1,6 @@
 'use client';
 
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { call } from '@/lib/client-api';
@@ -91,7 +92,7 @@ export function ListingForm({ id, initial }: { id?: string; initial?: ListingVal
   return (
     <form onSubmit={save} className="container-k flex max-w-3xl flex-col gap-6 py-8">
       <div>
-        <Link href="/vendor" className="text-[14px] font-bold text-muted">Back to your business</Link>
+        <Breadcrumbs items={[{ label: 'My business', href: '/vendor' }, { label: id ? 'Edit listing' : 'New listing' }]} />
         <h1 className="mt-2 font-display text-3xl font-extrabold">{id ? 'Edit listing' : 'New listing'}</h1>
         {id ? <p className="mt-1 text-muted">Changes to a live listing go back to our team for a quick check before travellers see them.</p> : null}
       </div>

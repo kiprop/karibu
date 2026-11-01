@@ -1,5 +1,6 @@
 'use client';
 
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -68,8 +69,9 @@ function ShareExperience() {
 
   if (loadErr) {
     return (
-      <div className="container-k max-w-xl py-12">
-        <h1 className="font-display text-2xl font-extrabold">Share your experience</h1>
+      <div className="container-k max-w-xl py-10">
+        <Breadcrumbs items={[{ label: 'Share', href: '/share' }, { label: 'Your experience' }]} />
+        <h1 className="mt-3 font-display text-2xl font-extrabold">Share your experience</h1>
         <p className="mt-2 text-muted">{loadErr}</p>
         <Link href="/share#rate" className="btn-primary mt-6">Find a business</Link>
       </div>
@@ -79,7 +81,7 @@ function ShareExperience() {
 
   const header = (
     <div>
-      <Link href={`/listing/${l.slug}`} className="inline-flex items-center gap-1 text-[14px] font-bold text-muted"><Icon name="back" size={16} />{l.title}</Link>
+      <Breadcrumbs items={[{ label: 'Share', href: '/share' }, { label: l.title, href: `/listing/${l.slug}` }, { label: 'Your experience' }]} />
       <h1 className="mt-3 font-display text-3xl font-extrabold">Share your experience</h1>
       <p className="mt-1 text-muted">{CATEGORY_SINGULAR[l.category]} · {l.city} · {l.vendorName}</p>
     </div>
@@ -102,6 +104,7 @@ function ShareExperience() {
   if (done) {
     return (
       <div className="container-k flex max-w-xl flex-col gap-4 py-10">
+        <Breadcrumbs items={[{ label: 'Share', href: '/share' }, { label: l.title, href: `/listing/${l.slug}` }, { label: 'Thanks' }]} />
         <span className="grid h-12 w-12 place-items-center rounded-full bg-teal text-white"><Icon name="check" strokeWidth={3} /></span>
         <h1 className="font-display text-3xl font-extrabold">{done.updated ? 'Your experience is updated' : 'Thanks for sharing'}</h1>
         <p className="text-muted">

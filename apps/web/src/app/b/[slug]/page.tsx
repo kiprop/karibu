@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { api, ApiError } from '@/lib/server-api';
 import { Icon } from '@/components/Icon';
@@ -30,7 +31,8 @@ export default async function BusinessPage({ params }: { params: Promise<{ slug:
   } catch (e) {
     const msg = e instanceof ApiError ? e.message : 'We couldn’t load this business.';
     return (
-      <div className="container-k max-w-xl py-16">
+      <div className="container-k max-w-xl py-10">
+        <Breadcrumbs className="mb-6" items={[{ label: 'Explore', href: '/explore' }, { label: 'Business not verified' }]} />
         <span className="grid h-12 w-12 place-items-center rounded-full bg-danger-soft text-danger"><Icon name="sos" /></span>
         <h1 className="mt-4 font-display text-3xl font-extrabold">Not verified on Karibu</h1>
         <p className="mt-2 text-lg">{msg}</p>
@@ -44,7 +46,8 @@ export default async function BusinessPage({ params }: { params: Promise<{ slug:
   }
   const b = data.business;
   return (
-    <div className="container-k py-10">
+    <div className="container-k py-6">
+      <Breadcrumbs className="mb-4" items={[{ label: 'Explore', href: '/explore' }, { label: b.countryName, href: `/explore?country=${b.country}` }, { label: b.name }]} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="eyebrow">{b.countryName}</p>

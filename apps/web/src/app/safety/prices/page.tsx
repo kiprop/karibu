@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { api, ApiError } from '@/lib/server-api';
@@ -41,7 +42,7 @@ export default async function Prices({ searchParams }: { searchParams: Promise<{
 
   return (
     <div className="container-k max-w-3xl py-10">
-      <Link href="/safety" className="inline-flex items-center gap-1 text-[14px] font-bold text-muted"><Icon name="back" size={16} />Travel smart</Link>
+      <Breadcrumbs items={[{ label: 'Travel smart', href: '/safety' }, { label: 'Fair prices' }]} />
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <h1 className="font-display text-3xl font-extrabold">Fair prices in {board.city.name}</h1>
         <form className="flex items-center gap-2">

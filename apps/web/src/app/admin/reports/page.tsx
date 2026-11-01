@@ -1,5 +1,6 @@
 'use client';
 
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { call } from '@/lib/client-api';
@@ -30,8 +31,8 @@ export default function Reports() {
 
   return (
     <div className="container-k py-8">
-      <Link href="/admin" className="text-[14px] font-bold text-muted">Review queue</Link>
-      <h1 className="mt-1 font-display text-3xl font-extrabold">Reports</h1>
+      <Breadcrumbs items={[{ label: 'Admin', href: '/admin' }, { label: 'Reports' }]} />
+      <h1 className="mt-3 font-display text-3xl font-extrabold">Reports</h1>
       <p className="text-muted">Safety and scam reports are due within 4 hours; everything else within 2 days.</p>
       <div className="mt-4 flex gap-2">{TABS.map((t) => <button key={t} className={`pill ${tab === t ? 'pill-on' : ''}`} onClick={() => setTab(t)}>{t}</button>)}</div>
       {err ? <p className="mt-4 text-danger">{err}</p> : null}

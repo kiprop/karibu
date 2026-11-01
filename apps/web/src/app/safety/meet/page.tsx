@@ -1,5 +1,6 @@
 'use client';
 
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Icon } from '@/components/Icon';
@@ -27,7 +28,7 @@ export default function MeetSafely() {
 
   return (
     <div className="container-k max-w-2xl py-10">
-      <Link href="/safety" className="inline-flex items-center gap-1 text-[14px] font-bold text-muted"><Icon name="back" size={16} />Travel smart</Link>
+      <Breadcrumbs items={[{ label: 'Travel smart', href: '/safety' }, { label: 'Meet safely' }]} />
       <h1 className="mt-3 font-display text-3xl font-extrabold">Meet safely</h1>
       <div className="mt-4 flex gap-3 rounded-2xl bg-danger-soft p-4 text-[15px]">
         <Icon name="sos" className="text-danger" />

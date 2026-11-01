@@ -1,5 +1,6 @@
 'use client';
 
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { call } from '@/lib/client-api';
@@ -36,8 +37,9 @@ function ReportForm() {
 
   if (sent) {
     return (
-      <div className="container-k max-w-xl py-12" role="status">
-        <h1 className="font-display text-3xl font-extrabold">Thank you</h1>
+      <div className="container-k max-w-xl py-10" role="status">
+        <Breadcrumbs items={[{ label: 'Share', href: '/share' }, { label: 'Report a problem' }]} />
+        <h1 className="mt-3 font-display text-3xl font-extrabold">Thank you</h1>
         <p className="mt-2">Our team reviews safety and scam reports within 4 hours, and other reports within 2 working days.</p>
         <p className="mt-2 text-muted">In an emergency, call 999 or 112 first.</p>
       </div>
@@ -45,6 +47,7 @@ function ReportForm() {
   }
   return (
     <form onSubmit={submit} className="container-k flex max-w-xl flex-col gap-4 py-10">
+      <Breadcrumbs items={[{ label: 'Share', href: '/share' }, { label: 'Report a problem' }]} />
       <h1 className="font-display text-3xl font-extrabold">Report a problem</h1>
       {title ? <p className="text-muted">About: <strong className="text-ink">{title}</strong></p> : (
         <div><label className="label" htmlFor="r-subj">Which business?</label><input id="r-subj" required className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Business name or phone number" /></div>

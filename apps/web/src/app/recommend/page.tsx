@@ -1,5 +1,6 @@
 'use client';
 
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { useState } from 'react';
 import { call } from '@/lib/client-api';
 
@@ -18,9 +19,10 @@ export default function Recommend() {
       setErr((x as Error).message);
     }
   }
-  if (sent) return <div className="container-k max-w-xl py-12" role="status"><h1 className="font-display text-3xl font-extrabold">Thanks for the tip</h1><p className="mt-2">Our field team will contact the business and verify it before it can appear on Karibu.</p></div>;
+  if (sent) return <div className="container-k max-w-xl py-10" role="status"><Breadcrumbs items={[{ label: 'Share', href: '/share' }, { label: 'Recommend a business' }]} /><h1 className="mt-3 font-display text-3xl font-extrabold">Thanks for the tip</h1><p className="mt-2">Our field team will contact the business and verify it before it can appear on Karibu.</p></div>;
   return (
     <form onSubmit={submit} className="container-k flex max-w-xl flex-col gap-4 py-10">
+      <Breadcrumbs items={[{ label: 'Share', href: '/share' }, { label: 'Recommend a business' }]} />
       <h1 className="font-display text-3xl font-extrabold">Recommend a business</h1>
       <p className="text-muted">Had great service from a driver, guide or camp? Tell us and we’ll invite them to get verified.</p>
       <div><label className="label" htmlFor="b">Business or person</label><input id="b" required className="input" value={f.business} onChange={set('business')} /></div>

@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { api } from '@/lib/server-api';
@@ -18,6 +19,7 @@ export default async function Shared({ params }: { params: Promise<{ token: stri
   const days = [...new Set(trip.items.map((i) => i.day))];
   return (
     <div className="container-k max-w-3xl py-10">
+      <Breadcrumbs className="mb-4" items={[{ label: 'Shared trip' }, { label: trip.title }]} />
       <p className="eyebrow">Shared trip</p>
       <h1 className="mt-1 font-display text-3xl font-extrabold">{trip.title}</h1>
       {trip.startsOn ? <p className="mt-1 text-muted">{shortDate(trip.startsOn)}{trip.endsOn ? ` to ${shortDate(trip.endsOn)}` : ''}</p> : null}

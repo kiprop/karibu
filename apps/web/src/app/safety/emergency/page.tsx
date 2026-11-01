@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { api } from '@/lib/server-api';
 import { Icon } from '@/components/Icon';
@@ -15,7 +16,7 @@ export default async function Emergency({ searchParams }: { searchParams: Promis
   const hospitals = info.contacts.filter((c) => c.kind === 'hospital');
   return (
     <div className="container-k max-w-2xl py-10">
-      <Link href="/safety" className="inline-flex items-center gap-1 text-[14px] font-bold text-muted"><Icon name="back" size={16} />Travel smart</Link>
+      <Breadcrumbs items={[{ label: 'Travel smart', href: '/safety' }, { label: 'Emergency card' }]} />
       <h1 className="mt-3 font-display text-3xl font-extrabold">Emergency card · {info.country.name}</h1>
       {info.advisories.map((a) => <p key={a.id} className="mt-4 rounded-xl bg-amber-soft p-3 text-amber"><strong>Advisory:</strong> {a.message}</p>)}
       <div className="mt-6 grid gap-3 sm:grid-cols-2">

@@ -1,5 +1,6 @@
 'use client';
 
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -78,6 +79,7 @@ function AddPrice() {
   if (done) {
     return (
       <div className="container-k flex max-w-2xl flex-col gap-5 py-10">
+        <Breadcrumbs items={[{ label: 'Travel smart', href: '/safety' }, { label: 'Fair prices', href: `/safety/prices?city=${city}` }, { label: 'Thanks' }]} />
         <div className="flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-full bg-teal text-white"><Icon name="check" strokeWidth={3} /></span><h1 className="font-display text-3xl font-extrabold">Thanks, that helps</h1></div>
         <p className="text-muted">Your price is now part of what travellers see for {listing ? listing.title : 'this city'}. Here’s how it compares with what we knew before.</p>
         <Verdict r={done} amount={done.amount} reportHref={f.feel === 'ripoff' ? (listingSlug ? `/report?category=overcharged&subject=${encodeURIComponent(listing?.title ?? '')}` : '/report?category=overcharged') : undefined} />
@@ -93,7 +95,9 @@ function AddPrice() {
   return (
     <form onSubmit={submit} className="container-k flex max-w-2xl flex-col gap-5 py-10">
       <div>
-        <Link href={`/safety/prices?city=${city}`} className="inline-flex items-center gap-1 text-[14px] font-bold text-muted"><Icon name="back" size={16} />Fair prices</Link>
+        <Breadcrumbs items={listing && listingSlug
+          ? [{ label: listing.city, href: `/explore?city=${city}` }, { label: listing.title, href: `/listing/${listingSlug}` }, { label: 'I paid this much' }]
+          : [{ label: 'Travel smart', href: '/safety' }, { label: 'Fair prices', href: `/safety/prices?city=${city}` }, { label: 'I paid this much' }]} />
         <h1 className="mt-3 font-display text-3xl font-extrabold">I paid this much</h1>
         <p className="mt-1 text-muted">Tell the next traveller what you really paid. No account needed, and we never show who you are.</p>
       </div>
