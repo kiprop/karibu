@@ -60,6 +60,9 @@ services:
     restart: unless-stopped
     environment:
       API_URL: http://api:4000
+      # Listen on every interface, so the tunnel can reach web:3000 whatever hostname Docker assigns.
+      HOSTNAME: 0.0.0.0
+      PORT: '3000'
     depends_on: [api]
 
   # Connects out to Cloudflare. In the Cloudflare dashboard, point karibu.enkopintelligence.com at http://web:3000.
