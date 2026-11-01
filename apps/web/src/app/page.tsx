@@ -101,6 +101,19 @@ export default async function Home() {
         ))}
       </section>
 
+      <section className="container-k mt-12">
+        <div className="flex flex-col gap-4 rounded-[24px] p-6 text-white media-safari sm:flex-row sm:items-center sm:justify-between sm:p-8">
+          <div>
+            <h2 className="font-display text-2xl font-extrabold sm:text-3xl">Been somewhere? Pay it forward.</h2>
+            <p className="mt-1 max-w-xl opacity-95">Share what you paid and how you were treated. It takes a minute and it’s how the next traveller avoids the mzungu price.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/safety/prices/add" className="btn bg-white px-5 font-bold text-[#15171C]">I paid this much</Link>
+            <Link href="/share" className="btn border-2 border-white px-5 font-bold text-white">Rate a business</Link>
+          </div>
+        </div>
+      </section>
+
       <Row title="Top rated by travellers" href="/explore?sort=rating" items={rated.results} />
 
       <section className="container-k mt-12">

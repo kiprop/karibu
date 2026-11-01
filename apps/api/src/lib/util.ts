@@ -35,3 +35,13 @@ export class HttpError extends Error {
 export const notFound = (what = 'Not found') => new HttpError(404, what, 'not_found');
 export const forbidden = (what = 'You do not have access to this') => new HttpError(403, what, 'forbidden');
 export const badRequest = (what: string, code = 'bad_request') => new HttpError(400, what, code);
+
+const FREE_MAIL = new Set([
+  'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.co.uk', 'ymail.com', 'hotmail.com', 'outlook.com', 'live.com', 'msn.com',
+  'icloud.com', 'me.com', 'aol.com', 'proton.me', 'protonmail.com', 'gmx.com', 'mail.com', 'zoho.com', 'yandex.com',
+]);
+/** True when an email is on the business's own domain rather than a free webmail provider. A trust signal for reviewers, not a requirement. */
+export function isCompanyEmail(email: string) {
+  const domain = email.split('@')[1]?.toLowerCase() ?? '';
+  return !!domain && !FREE_MAIL.has(domain);
+}

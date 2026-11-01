@@ -216,6 +216,32 @@ export async function seed() {
     for (const [slug, title, body, src] of pages) {
       await c.query(`INSERT INTO country_pages (country_code, slug, title, body_md, source_urls, last_reviewed_on) VALUES ('KE',$1,$2,$3,$4, current_date)`, [slug, title, body, src]);
     }
+    // Official government links. Checked by hand; re-check quarterly (last_checked_on shows when).
+    const links: Array<[string, string, string, string, string, string | null]> = [
+      ['KE', 'entry', 'Electronic Travel Authorisation (eTA)', 'https://www.etakenya.go.ke', 'Apply for the eTA every visitor needs before flying to Kenya.', 'Apply only on etakenya.go.ke. Look-alike sites charge extra fees.'],
+      ['KE', 'entry', 'Directorate of Immigration Services', 'https://immigration.go.ke', 'Visas, permits, passes and eTA rules from the government department that issues them.', null],
+      ['KE', 'business_check', 'Check a tourism licence (Tourism Regulatory Authority)', 'https://verify.tra.go.ke', 'Confirm that a tour operator, travel agent or hotel holds a current licence before you pay.', null],
+      ['KE', 'business_check', 'Tourism Regulatory Authority', 'https://tra.go.ke', 'The regulator for tour operators, hotels and travel agents. Notices on suspended or revoked licences.', null],
+      ['KE', 'parks', 'Kenya Wildlife Service: park fees and parks', 'https://www.kws.go.ke', 'Official national park entry fees, rules and park information. Fees changed in October 2025.', 'Park fees are paid to KWS through eCitizen, never to a personal mobile money number.'],
+      ['KE', 'parks', 'eCitizen: government payments', 'https://www.ecitizen.go.ke', 'Official portal for paying government services, including park entry and eTA.', null],
+      ['KE', 'tourism', 'Magical Kenya (Kenya Tourism Board)', 'https://magicalkenya.com', 'The official tourism board site for destinations and events.', null],
+      ['KE', 'transport', 'Madaraka Express (SGR) tickets', 'https://metickets.krc.co.ke', 'Book Nairobi to Mombasa trains directly with Kenya Railways.', 'Kenya Railways warns about fake booking sites. Book only on metickets.krc.co.ke or at the station.'],
+      ['KE', 'transport', 'Kenya Airports Authority', 'https://www.kaa.go.ke', 'Airport information for JKIA, Moi International and others.', null],
+      ['KE', 'health', 'Ministry of Health', 'https://www.health.go.ke', 'Health advisories and entry health requirements.', null],
+      ['KE', 'safety', 'National Police Service', 'https://www.nationalpolice.go.ke', 'Police contacts and how to report a crime. In an emergency call 999 or 112.', null],
+      ['KE', 'complaints', 'Competition Authority of Kenya: consumer complaints', 'https://www.cak.go.ke', 'Where to complain about unfair prices or treatment by a business, if talking to it fails.', null],
+      ['TZ', 'entry', 'Tanzania eVisa (Immigration Department)', 'https://visa.immigration.go.tz', 'The official Tanzania visa application site.', 'Use only the .go.tz site. Agents and look-alikes charge extra.'],
+      ['UG', 'entry', 'Uganda eVisa (Immigration)', 'https://visas.immigration.go.ug', 'The official Uganda visa application site.', null],
+      ['RW', 'entry', 'Rwanda visas (Irembo)', 'https://irembo.gov.rw', 'The Rwanda government services portal, including visas.', null],
+      ['ET', 'entry', 'Ethiopia eVisa', 'https://www.evisa.gov.et', 'The official Ethiopia e-Visa site.', null],
+    ];
+    for (const [i, [cc, topic, title, url, desc, warn]] of links.entries()) {
+      await c.query(
+        `INSERT INTO country_links (country_code, topic, title, url, description, warning, position) VALUES ($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (country_code, url) DO UPDATE SET topic = EXCLUDED.topic, title = EXCLUDED.title, description = EXCLUDED.description, warning = EXCLUDED.warning, position = EXCLUDED.position`,
+        [cc, topic, title, url, desc, warn, i],
+      );
+    }
     await c.query(`DELETE FROM emergency_contacts WHERE country_code = 'KE'`);
     const contacts: Array<[string, string, string, string | null, string | null]> = [
       ['emergency', 'Police, fire and ambulance', '999', null, null],

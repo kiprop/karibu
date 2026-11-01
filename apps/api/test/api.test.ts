@@ -192,24 +192,34 @@ describe('vendors and verification', () => {
     return c;
   };
 
-  it('signs a vendor in by SMS code and locks out after a wrong code', async () => {
+  it('signs in by SMS code as an ordinary account, and wrong codes use up attempts', async () => {
     vendor = client(app);
     const s = await vendor.post('/auth/phone/start', { phone: '+254711222333' });
     const wrong = await vendor.post('/auth/phone/verify', { phone: '+254711222333', code: s.json.devCode === '000000' ? '111111' : '000000' });
     expect(wrong.status).toBe(400);
     const ok = await vendor.post('/auth/phone/verify', { phone: '+254711222333', code: s.json.devCode });
-    expect(ok.json.user.role).toBe('vendor');
+    expect(ok.json.user.role).toBe('traveller');
+
+    const x = client(app);
+    const s2 = await x.post('/auth/phone/start', { phone: '+254799000111' });
+    for (let i = 0; i < 5; i++) await x.post('/auth/phone/verify', { phone: '+254799000111', code: s2.json.devCode === '000000' ? '111111' : '000000' });
+    expect((await x.post('/auth/phone/verify', { phone: '+254799000111', code: s2.json.devCode })).status).toBe(400);
   });
 
-  it('travellers cannot use vendor endpoints', async () => {
+  it('business tools need a sign-in and a business, not a special account type', async () => {
+    expect((await client(app).post('/vendor/businesses', { name: 'X', countryCode: 'KE', whatsapp: '+254700000001' })).status).toBe(401);
     const t = client(app);
     await signInEmail(t, 'just-a-traveller@example.com');
-    expect((await t.post('/vendor/businesses', { name: 'X', countryCode: 'KE', whatsapp: '+254700000001' })).status).toBe(403);
+    const me = await t.get('/vendor/me');
+    expect(me.status).toBe(404);
+    expect(me.json.code).toBe('no_vendor');
   });
 
   it('creates a business and a safari listing with validated attributes', async () => {
     const b = await vendor.post('/vendor/businesses', { name: 'Savanna Test Safaris', countryCode: 'KE', whatsapp: '+254711222333' });
     expect(b.status).toBe(200);
+    // WhatsApp matches the number the owner signed in with, so it is verified already.
+    expect((await vendor.get('/vendor/me')).json.vendor.whatsappVerified).toBe(true);
     const cities = await vendor.get('/cities?country=KE');
     const mara = cities.json.cities.find((c: any) => c.slug === 'maasai-mara');
     const base = {
@@ -362,5 +372,175 @@ describe('I paid this much', () => {
     const board = await client(app).get('/cities/nairobi/prices');
     expect(board.json.community.find((x: any) => x.item === 'Plate of ugali with stew').reports).toBe(3);
     expect((await client(app).get('/admin/price-reports')).status).toBe(401);
+  });
+});
+
+describe('one account for travellers and businesses', () => {
+  it('a business can sign in with its company email and run its business', async () => {
+    const owner = client(app);
+    await signInEmail(owner, 'owner@mara-camps.co.ke');
+    const b = await owner.post('/vendor/businesses', { name: 'Mara Camps Ltd', countryCode: 'KE', whatsapp: '+254722555000', email: 'owner@mara-camps.co.ke' });
+    expect(b.status).toBe(200);
+    const v = (await owner.get('/vendor/me')).json.vendor;
+    expect(v.emailVerified).toBe(true);
+    expect(v.emailIsCompany).toBe(true);
+    expect(v.whatsappVerified).toBe(false);
+    const me = await owner.get('/me');
+    expect(me.json.vendors.map((x: any) => x.name)).toContain('Mara Camps Ltd');
+    // The same account still saves favourites and plans trips like any traveller.
+    const list = await client(app).get('/listings?category=stay');
+    expect((await owner.put(`/me/favourites/${list.json.results[0].id}`)).status).toBe(200);
+  });
+
+  it('adds a phone to an email account, so either one signs in to the same account', async () => {
+    const a = client(app);
+    const user = await signInEmail(a, 'both-ways@mara-camps.co.ke');
+    await a.post('/vendor/businesses', { name: 'Both Ways Tours', countryCode: 'KE', whatsapp: '+254733444555' });
+    const s = await a.post('/auth/phone/start', { phone: '+254733444555', add: true });
+    expect(s.status).toBe(200);
+    const v = await a.post('/auth/phone/verify', { phone: '+254733444555', code: s.json.devCode });
+    expect(v.json.linked).toBe(true);
+    const me = await a.get('/me');
+    expect(me.json.signIn).toMatchObject({ email: 'both-ways@mara-camps.co.ke', emailVerified: true, phone: '+254733444555', phoneVerified: true });
+    // Adding the number proved the business WhatsApp too.
+    expect((await a.get('/vendor/me')).json.vendor.whatsappVerified).toBe(true);
+
+    const b = client(app);
+    const byPhone = await signInPhone(b, '+254733444555');
+    expect(byPhone.id).toBe(user.id);
+    expect((await b.get('/vendor/me')).json.vendor.name).toBe('Both Ways Tours');
+  });
+
+  it('an add-phone code only works in the session that asked for it', async () => {
+    const a = client(app);
+    await signInEmail(a, 'code-thief-target@example.com');
+    const s = await a.post('/auth/phone/start', { phone: '+254744000999', add: true });
+    const other = client(app);
+    expect((await other.post('/auth/phone/verify', { phone: '+254744000999', code: s.json.devCode })).status).toBe(400);
+  });
+
+  it('refuses to add an email or phone that another account uses', async () => {
+    const a = client(app);
+    await signInEmail(a, 'someone-else@example.com');
+    expect((await a.post('/auth/phone/start', { phone: '+254711222333', add: true })).status).toBe(409);
+    expect((await a.post('/auth/email/start', { email: 'owner@mara-camps.co.ke', add: true })).status).toBe(409);
+    expect((await client(app).post('/auth/phone/start', { phone: '+254755000000', add: true })).status).toBe(401);
+  });
+
+  it('verifies a shared business inbox by link, and resets when the email changes', async () => {
+    const owner = client(app);
+    await signInEmail(owner, 'owner@mara-camps.co.ke');
+    await owner.patch('/vendor/me', { email: 'bookings@mara-camps.co.ke' });
+    expect((await owner.get('/vendor/me')).json.vendor.emailVerified).toBe(false);
+    const s = await owner.post('/vendor/email/start');
+    expect(s.json.sent).toBe(true);
+    const v = await client(app).post('/vendor/email/verify', { token: s.json.devToken });
+    expect(v.json.verified).toBe(true);
+    expect((await owner.get('/vendor/me')).json.vendor.emailVerified).toBe(true);
+    expect((await client(app).post('/vendor/email/verify', { token: s.json.devToken })).status).toBe(400);
+  });
+
+  it('keeps at least one way to sign in', async () => {
+    const a = client(app);
+    await signInEmail(a, 'only-email@example.com');
+    expect((await a.del('/me/sign-in/email')).status).toBe(400);
+  });
+});
+
+describe('share your experience', () => {
+  let slug: string;
+  beforeAll(async () => {
+    slug = (await client(app).get('/listings?category=stay')).json.results[0].slug;
+  });
+
+  it('needs a sign-in to rate, so every star has an accountable author', async () => {
+    expect((await client(app).post('/experiences', { listingSlug: slug, rating: 5 })).status).toBe(401);
+  });
+
+  it('lets any signed-in traveller share stars, recommend, what they paid and what happened', async () => {
+    const t = client(app);
+    await signInEmail(t, 'experience-1@example.com', { displayName: 'Amina Otieno' });
+    const r = await t.post('/experiences', {
+      listingSlug: slug, rating: 4, recommend: true, body: 'Hot water all evening, staff helpful.', visitedOn: '2026-10-01',
+      price: { group: 'stay', item: 'Double room, one night', amount: 9500, unit: 'per night', feel: 'fair' },
+    });
+    expect(r.status).toBe(200);
+    expect(r.json.contacted).toBe(false);
+    const d = (await client(app).get(`/listings/${slug}`)).json.listing;
+    const mine = d.reviews.find((x: any) => x.body?.startsWith('Hot water'));
+    expect(mine).toMatchObject({ rating: 4, recommend: true, contacted: false, author: 'Amina' });
+    expect(mine.paid).toMatchObject({ amount: 9500, item: 'Double room, one night' });
+    expect(d.recommendYes).toBeGreaterThanOrEqual(1);
+    expect(d.paid.reports).toBeGreaterThanOrEqual(1);
+  });
+
+  it('sharing again updates the same experience instead of adding another', async () => {
+    const t = client(app);
+    await signInEmail(t, 'experience-1@example.com');
+    const r = await t.post('/experiences', { listingSlug: slug, rating: 2, recommend: false, body: 'Changed my mind: no hot water the second night.' });
+    expect(r.json.updated).toBe(true);
+    const d = (await client(app).get(`/listings/${slug}`)).json.listing;
+    expect(d.reviews.filter((x: any) => x.author === 'Amina')).toHaveLength(1);
+  });
+
+  it('marks experiences from a Karibu enquiry as contacted', async () => {
+    const t = client(app, { 'x-device-id': 'device-exp-contact-1' });
+    await signInEmail(t, 'experience-2@example.com');
+    const listing = (await client(app).get(`/listings/${slug}`)).json.listing;
+    const e = await t.post('/enquiries', { listingId: listing.id });
+    const ref = e.json.enquiry.refCode;
+    const r = await t.post('/experiences', { listingSlug: slug, rating: 5, recommend: true, refCode: ref });
+    expect(r.json.contacted).toBe(true);
+    expect((await t.get('/me/enquiries')).json.enquiries.find((x: any) => x.refCode === ref).reviewed).toBe(true);
+  });
+
+  it('a business cannot rate itself', async () => {
+    const owner = client(app);
+    await signInEmail(owner, 'self-rater@example.com');
+    // Make this account a member of the business that runs the listing.
+    const me = (await owner.get('/me')).json.user;
+    await pool.query(`INSERT INTO vendor_members (vendor_id, user_id) SELECT vendor_id, $1 FROM listings WHERE slug = $2`, [me.id, slug]);
+    expect((await owner.post('/experiences', { listingSlug: slug, rating: 5 })).status).toBe(403);
+  });
+
+  it('shows recent experiences on the share feed, and reviewers can hide one', async () => {
+    const feed = await client(app).get('/experiences/recent');
+    expect(feed.json.experiences.length).toBeGreaterThan(0);
+    const admin = client(app);
+    await signInEmail(admin, 'admin@karibu.example');
+    const list = await admin.get('/admin/reviews');
+    const target = list.json.reviews[0];
+    expect((await admin.post(`/admin/reviews/${target.id}`, { hidden: true, reason: 'Personal details' })).json.hidden).toBe(true);
+    const after = await client(app).get('/experiences/recent');
+    expect(after.json.experiences.find((x: any) => x.id === target.id)).toBeUndefined();
+  });
+});
+
+describe('official links and business pages', () => {
+  it('lists official government links for Kenya with checked dates and warnings', async () => {
+    const r = await client(app).get('/countries/KE/info');
+    const eta = r.json.links.find((l: any) => l.url === 'https://www.etakenya.go.ke');
+    expect(eta.topic).toBe('entry');
+    expect(eta.warning).toMatch(/look-alike/i);
+    expect(r.json.links.every((l: any) => l.url.startsWith('https://') && l.lastCheckedOn)).toBe(true);
+    expect(r.json.links.find((l: any) => l.url === 'https://verify.tra.go.ke').topic).toBe('business_check');
+    const tz = await client(app).get('/countries/TZ/info');
+    expect(tz.json.links[0].url).toBe('https://visa.immigration.go.tz');
+  });
+
+  it('has a public page and live badge for verified businesses only', async () => {
+    const l = (await client(app).get('/listings?category=safari')).json.results[0];
+    const d = (await client(app).get(`/listings/${l.slug}`)).json.listing;
+    const page = await client(app).get(`/businesses/${d.vendorSlug}`);
+    expect(page.status).toBe(200);
+    expect(page.json.listings.length).toBeGreaterThan(0);
+    const badge = await client(app).get(`/businesses/${d.vendorSlug}/badge.svg`);
+    expect(badge.raw.body).toContain('Verified on Karibu');
+    const unverified = client(app);
+    await signInEmail(unverified, 'new-biz@example.com');
+    await unverified.post('/vendor/businesses', { name: 'Brand New Tours', countryCode: 'KE', whatsapp: '+254766000222' });
+    const vs = (await unverified.get('/vendor/me')).json.vendor.slug;
+    expect((await client(app).get(`/businesses/${vs}`)).status).toBe(404);
+    expect((await client(app).get(`/businesses/${vs}/badge.svg`)).raw.body).toContain('Not verified on Karibu');
   });
 });

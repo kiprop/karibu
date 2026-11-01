@@ -3,10 +3,10 @@ import { LEVEL_LABEL, type Category } from '@/lib/types';
 
 export function Stars({ rating, count, size = 14 }: { rating: number | null; count: number; size?: number }) {
   if (rating == null) {
-    return <span className="text-[13px] font-semibold text-muted">{count > 0 ? `${count} review${count === 1 ? '' : 's'}` : 'New on Karibu'}</span>;
+    return <span className="text-[13px] font-semibold text-muted">{count > 0 ? `${count} experience${count === 1 ? '' : 's'}` : 'New on Karibu'}</span>;
   }
   return (
-    <span className="inline-flex items-center gap-1.5 text-[13px] font-bold" aria-label={`Rated ${rating} out of 5 from ${count} reviews`}>
+    <span className="inline-flex items-center gap-1.5 text-[13px] font-bold" aria-label={`Rated ${rating} out of 5 from ${count} ${count === 1 ? 'experience' : 'experiences'}`}>
       <span className="inline-flex text-star" aria-hidden="true">
         {[1, 2, 3, 4, 5].map((i) => (
           <svg key={i} width={size} height={size} viewBox="0 0 24 24" className={rating >= i - 0.25 ? '' : 'opacity-25'} fill="currentColor">

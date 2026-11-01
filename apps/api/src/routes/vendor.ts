@@ -2,7 +2,10 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { q, tx } from '../db/pool.js';
-import { requireRole } from '../auth.js';
+import { requireRole, requireUser } from '../auth.js';
+import { syncVendorContacts } from './auth.js';
+import { outbox } from '../lib/notify.js';
+import { isCompanyEmail, sha256 } from '../lib/util.js';
 import { CATEGORIES, type Category, isValidSubtype, validateAttributes, AMENITIES } from '../lib/categories.js';
 import { savePrivateFile } from '../lib/storage.js';
 import { startCheckout, verifyWebhook } from '../lib/payments.js';
@@ -12,8 +15,9 @@ const uuid = z.string().uuid();
 const e164 = z.string().regex(/^\+[1-9][0-9]{7,14}$/, 'Use international format, for example +254712345678');
 
 /** The vendor this signed-in user manages (first one, or the one named in the x-vendor-id header). */
+/** The business the signed-in person runs. Access comes from vendor_members, not from how they signed in. */
 async function myVendor(req: FastifyRequest) {
-  const u = requireRole(req, 'vendor', 'admin');
+  const u = requireUser(req);
   const want = req.headers['x-vendor-id'];
   const { rows } = await q(
     `SELECT v.* FROM vendor_members m JOIN vendors v ON v.id = m.vendor_id
@@ -56,8 +60,9 @@ function checkListing(b: z.infer<typeof listingInput>) {
 
 export async function vendorRoutes(app: FastifyInstance) {
   // ---- Business profile ----
+  // Any signed-in person can register a business and becomes its owner.
   app.post('/vendor/businesses', async (req) => {
-    const u = requireRole(req, 'vendor', 'admin');
+    const u = requireUser(req);
     const b = z
       .object({ name: z.string().trim().min(2).max(120), countryCode: z.string().length(2).toUpperCase(), whatsapp: e164, phone: e164.optional(), email: z.string().email().optional(), licenceNumber: z.string().max(60).optional() })
       .parse(req.body);
@@ -70,9 +75,62 @@ export async function vendorRoutes(app: FastifyInstance) {
         [b.name, slug, b.countryCode, b.whatsapp, b.phone ?? null, b.email ?? null, b.licenceNumber ?? null],
       );
       await c.query(`INSERT INTO vendor_members (vendor_id, user_id, is_owner) VALUES ($1,$2,true)`, [v.rows[0].id, u.id]);
+      // WhatsApp or email that match the owner's verified sign-in details count as verified straight away.
+      await syncVendorContacts(c, u.id);
       return v.rows[0];
     });
     return { vendor };
+  });
+
+  // Edit contact details. Changing one clears its verification until it's proven again.
+  app.patch('/vendor/me', async (req) => {
+    const { user, vendor } = await myVendor(req);
+    const b = z
+      .object({ name: z.string().trim().min(2).max(120).optional(), about: z.string().trim().max(600).nullable().optional(), website: z.string().trim().url().regex(/^https?:\/\//).max(200).nullable().optional(), whatsapp: e164.optional(), phone: e164.nullable().optional(), email: z.string().trim().toLowerCase().email().nullable().optional(), licenceNumber: z.string().max(60).nullable().optional() })
+      .parse(req.body);
+    await tx(async (c) => {
+      await c.query(
+        `UPDATE vendors SET name = coalesce($2, name),
+                whatsapp_e164 = coalesce($3, whatsapp_e164),
+                whatsapp_verified_at = CASE WHEN $3::text IS NOT NULL AND $3 <> whatsapp_e164 THEN NULL ELSE whatsapp_verified_at END,
+                phone_e164 = CASE WHEN $4::boolean THEN $5 ELSE phone_e164 END,
+                email = CASE WHEN $6::boolean THEN $7 ELSE email END,
+                email_verified_at = CASE WHEN $6::boolean AND $7::text IS DISTINCT FROM email THEN NULL ELSE email_verified_at END,
+                licence_number = CASE WHEN $8::boolean THEN $9 ELSE licence_number END,
+                about = CASE WHEN $10::boolean THEN $11 ELSE about END,
+                website = CASE WHEN $12::boolean THEN $13 ELSE website END,
+                updated_at = now()
+          WHERE id = $1`,
+        [vendor.id, b.name ?? null, b.whatsapp ?? null, b.phone !== undefined, b.phone ?? null, b.email !== undefined, b.email ?? null, b.licenceNumber !== undefined, b.licenceNumber ?? null,
+         b.about !== undefined, b.about || null, b.website !== undefined, b.website || null],
+      );
+      await syncVendorContacts(c, user.id);
+    });
+    return { ok: true };
+  });
+
+  // Prove the business email by clicking a link sent to it (for a shared inbox like bookings@ that nobody signs in with).
+  app.post('/vendor/email/start', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (req) => {
+    const { vendor } = await myVendor(req);
+    if (!vendor.email) throw badRequest('Add a business email first');
+    if (vendor.email_verified_at) return { sent: false, alreadyVerified: true };
+    const token = randomToken();
+    await q(`INSERT INTO login_tokens (kind, target, token_hash, expires_at) VALUES ('vendor_email', $1, $2, now() + interval '2 days')`, [vendor.id, sha256(token)]);
+    const link = `${config.webUrl}/vendor/verify-email?token=${encodeURIComponent(token)}`;
+    await outbox.email(vendor.email, `Confirm ${vendor.name}'s email on Karibu`, `Tap to confirm this is ${vendor.name}'s email address on Karibu:\n\n${link}\n\nThe link expires in 2 days. If you don't know about this, ignore this email.`);
+    return { sent: true, ...(config.exposeDevSecrets ? { devLink: link, devToken: token } : {}) };
+  });
+
+  // Public: whoever can open the inbox can confirm it. No sign-in needed.
+  app.post('/vendor/email/verify', { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }, async (req) => {
+    const { token } = z.object({ token: z.string().min(20).max(200) }).parse(req.body);
+    const { rows } = await q(
+      `UPDATE login_tokens SET used_at = now() WHERE token_hash = $1 AND kind = 'vendor_email' AND used_at IS NULL AND expires_at > now() RETURNING target`,
+      [sha256(token)],
+    );
+    if (!rows[0]) throw badRequest('This link has expired or was already used. Ask for a new one from your business dashboard.');
+    const v = await q(`UPDATE vendors SET email_verified_at = now() WHERE id = $1 RETURNING name, email`, [rows[0].target]);
+    return { verified: true, business: v.rows[0]?.name, email: v.rows[0]?.email };
   });
 
   app.get('/vendor/me', async (req) => {
@@ -92,6 +150,8 @@ export async function vendorRoutes(app: FastifyInstance) {
         id: vendor.id, name: vendor.name, slug: vendor.slug, country: vendor.country_code, whatsapp: vendor.whatsapp_e164,
         verificationLevel: vendor.verification_level, verifiedAt: vendor.verified_at, reverifyDue: vendor.reverify_due,
         suspended: vendor.is_suspended, plan: plan.rows[0],
+        email: vendor.email, emailVerified: !!vendor.email_verified_at, emailIsCompany: vendor.email ? isCompanyEmail(vendor.email) : false,
+        whatsappVerified: !!vendor.whatsapp_verified_at, licenceNumber: vendor.licence_number, about: vendor.about, website: vendor.website,
       },
       listings: listings.rows,
       documents: docs.rows,

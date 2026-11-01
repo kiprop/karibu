@@ -6,9 +6,10 @@ import { call } from '@/lib/client-api';
 import { Icon } from '@/components/Icon';
 import { CATEGORY_SINGULAR, LEVEL_LABEL, type Category } from '@/lib/types';
 import { shortDate } from '@/lib/format';
+import { useSession } from '@/components/Session';
 
 type VMe = {
-  vendor: { id: string; name: string; whatsapp: string; verificationLevel: number; verifiedAt: string | null; reverifyDue: string | null; suspended: boolean; plan: { code: string; name: string; maxListings: number } };
+  vendor: { id: string; name: string; slug: string; about: string | null; website: string | null; whatsapp: string; whatsappVerified: boolean; email: string | null; emailVerified: boolean; emailIsCompany: boolean; verificationLevel: number; verifiedAt: string | null; reverifyDue: string | null; suspended: boolean; plan: { code: string; name: string; maxListings: number } };
   listings: { id: string; slug: string; title: string; category: string; subtype: string; status: string; updatedAt: string; lastConfirmedAt: string | null; lastNote: string | null }[];
   documents: { id: string; docType: string; fileName: string; result: string; uploadedAt: string }[];
 };
@@ -39,7 +40,9 @@ const DOC_TYPES = [
 ];
 
 function CreateBusiness({ onDone }: { onDone: () => void }) {
-  const [f, setF] = useState({ name: '', whatsapp: '+254', email: '', licenceNumber: '' });
+  const { me } = useSession();
+  // Start from the details this person signed in with, which are already verified.
+  const [f, setF] = useState({ name: '', whatsapp: me.signIn?.phone ?? '+254', email: me.signIn?.email ?? '', licenceNumber: '' });
   const [err, setErr] = useState<string | null>(null);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,10 +56,10 @@ function CreateBusiness({ onDone }: { onDone: () => void }) {
   return (
     <form onSubmit={submit} className="container-k flex max-w-xl flex-col gap-4 py-10">
       <h1 className="font-display text-3xl font-extrabold">Tell us about your business</h1>
-      <p className="text-muted">This is what travellers see next to your listings. You can add listings next.</p>
+      <p className="text-muted">This is what travellers see next to your listings. You can add listings next. Contact details that match how you signed in are verified straight away.</p>
       <div><label className="label" htmlFor="bn">Business name</label><input id="bn" required className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
       <div><label className="label" htmlFor="bw">WhatsApp number travellers should message</label><input id="bw" required type="tel" className="input" value={f.whatsapp} onChange={(e) => setF({ ...f, whatsapp: e.target.value })} /></div>
-      <div><label className="label" htmlFor="be">Email (optional, for receipts and notices)</label><input id="be" type="email" className="input" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
+      <div><label className="label" htmlFor="be">Business email (optional; a company address like bookings@yourcamp.co.ke helps verification)</label><input id="be" type="email" className="input" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
       <div><label className="label" htmlFor="bl">Tourism licence number (if you have one)</label><input id="bl" className="input" value={f.licenceNumber} onChange={(e) => setF({ ...f, licenceNumber: e.target.value })} /></div>
       <p className="text-[13px] text-muted">Karibu covers Kenya first. Tanzania, Uganda, Rwanda and Ethiopia are opening next.</p>
       <button className="btn-primary self-start">Continue</button>
@@ -87,7 +90,8 @@ export function VendorDashboard() {
   }, [load]);
 
   if (data === null) return <div className="container-k py-12 text-muted">Loading your business…</div>;
-  if (data === 'none') return <CreateBusiness onDone={load} />;
+  // Full reload after creating, so the header shows "My business".
+  if (data === 'none') return <CreateBusiness onDone={() => window.location.reload()} />;
   const v = data.vendor;
   const atLimit = data.listings.filter((l) => !['rejected', 'expired'].includes(l.status)).length >= v.plan.maxListings;
 
@@ -225,13 +229,93 @@ export function VendorDashboard() {
               {upMsg ? <p role="status" className="text-[14px]">{upMsg}</p> : null}
             </form>
           </section>
+          <PublicPage v={v} onSaved={load} />
           <section className="card p-5 text-[14px]">
             <h2 className="font-extrabold">Travellers contact you at</h2>
-            <p className="mt-1 font-mono">{v.whatsapp}</p>
+            <ContactRow label="WhatsApp" value={v.whatsapp} ok={v.whatsappVerified} fix={<Link href="/account" className="font-bold text-brand underline">Confirm it by adding this number to your sign-in</Link>} />
+            {v.email ? <ContactRow label={v.emailIsCompany ? 'Company email' : 'Email'} value={v.email} ok={v.emailVerified} fix={<VerifyEmail />} /> : null}
             <p className="mt-2 text-muted">Karibu never takes payments or commission. Agree prices and payment directly with travellers.</p>
           </section>
         </aside>
       </div>
     </div>
+  );
+}
+
+function ContactRow({ label, value, ok, fix }: { label: string; value: string; ok: boolean; fix: React.ReactNode }) {
+  return (
+    <div className="mt-3">
+      <div className="text-[12px] font-bold text-muted">{label}</div>
+      <div className="font-mono">{value}</div>
+      {ok ? (
+        <span className="chip mt-1 bg-teal-soft text-teal"><Icon name="check" size={12} strokeWidth={3} />Confirmed</span>
+      ) : (
+        <div className="mt-1 text-[13px]"><span className="chip bg-amber-soft text-amber">Not confirmed yet</span> <span className="ml-1">{fix}</span></div>
+      )}
+    </div>
+  );
+}
+
+function VerifyEmail() {
+  const [state, setState] = useState<'idle' | 'sent'>('idle');
+  const [dev, setDev] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  async function send() {
+    setErr(null);
+    try {
+      const r = await call<{ devLink?: string }>('/vendor/email/start', { body: {} });
+      setDev(r.devLink ?? null);
+      setState('sent');
+    } catch (x) {
+      setErr((x as Error).message);
+    }
+  }
+  if (state === 'sent') return <span>Link sent. Open it from that inbox.{dev ? <> <a className="font-bold underline" href={dev}>Dev: open link</a></> : null}</span>;
+  return <>{' '}<button className="font-bold text-brand underline" onClick={send}>Send a confirmation link</button>{err ? <span className="text-danger"> {err}</span> : null}</>;
+}
+
+/** The business's shareable page and live badge, plus the short "about" shown on it. */
+function PublicPage({ v, onSaved }: { v: VMe['vendor']; onSaved: () => void }) {
+  const [about, setAbout] = useState(v.about ?? '');
+  const [website, setWebsite] = useState(v.website ?? '');
+  const [msg, setMsg] = useState<string | null>(null);
+  const origin = typeof window === 'undefined' ? '' : window.location.origin;
+  const pageUrl = `${origin}/b/${v.slug}`;
+  const badge = `<a href="${pageUrl}"><img src="${origin}/api/businesses/${v.slug}/badge.svg" alt="Verified on Karibu" width="220" height="52"></a>`;
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    try {
+      await call('/vendor/me', { method: 'PATCH', body: { about: about || null, website: website || null } });
+      setMsg('Saved');
+      onSaved();
+    } catch (x) {
+      setMsg((x as Error).message);
+    }
+  }
+  return (
+    <section className="card flex flex-col gap-3 p-5 text-[14px]">
+      <h2 className="font-extrabold">Your public page</h2>
+      {v.verificationLevel ? (
+        <>
+          <p className="text-muted">Share this link, or put the badge on your website. Both update live: if verification lapses, they say so.</p>
+          <a href={`/b/${v.slug}`} className="break-all font-bold text-brand underline">{pageUrl.replace(/^https?:\/\//, '')}</a>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/businesses/${v.slug}/badge.svg`} alt="Your Karibu badge" width={220} height={52} />
+          <label className="label" htmlFor="badge">Badge code for your website</label>
+          <textarea id="badge" readOnly className="input min-h-[90px] py-2 font-mono text-[12px]" value={badge} onFocus={(e) => e.currentTarget.select()} />
+        </>
+      ) : (
+        <p className="text-muted">Your public page and badge switch on once our team has verified you.</p>
+      )}
+      <form onSubmit={save} className="flex flex-col gap-2">
+        <label className="label" htmlFor="about">About your business ({600 - about.length} left)</label>
+        <textarea id="about" maxLength={600} className="input min-h-[90px] py-2" value={about} onChange={(e) => setAbout(e.target.value)} placeholder="Family-run since 2009. Six pop-top Land Cruisers, KPSGA-certified guides." />
+        <label className="label" htmlFor="web">Website (optional)</label>
+        <input id="web" type="url" className="input" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://" />
+        <button className="btn-dark self-start">Save</button>
+        {msg ? <p role="status">{msg}</p> : null}
+      </form>
+    </section>
   );
 }

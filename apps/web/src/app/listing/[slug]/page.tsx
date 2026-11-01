@@ -9,6 +9,7 @@ import { SaveButton } from '@/components/SaveButton';
 import { ContactPanel } from './ContactPanel';
 import { AddToTrip } from './AddToTrip';
 import { ListingMap } from './ListingMap';
+import { ExperienceCard } from '@/components/ExperienceCard';
 
 const LEVEL_DETAIL: Record<number, string> = {
   1: 'We confirmed the phone number, a WhatsApp reply and the owner’s identity.',
@@ -123,7 +124,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px]">
             <Stars rating={l.rating} count={l.reviewCount} />
             <span className="inline-flex items-center gap-1 text-muted"><Icon name="pin" size={16} />{l.city}{l.locationIsPrivate ? ' (exact address shared after you message)' : ''}</span>
-            <span className="text-muted">by {l.vendorName}</span>
+            <Link href={`/b/${l.vendorSlug}`} className="text-muted underline-offset-2 hover:underline">by {l.vendorName}</Link>
           </div>
           <p className="mt-4 text-lg">{l.summary}</p>
           {l.description ? <p className="mt-3 leading-relaxed text-muted">{l.description}</p> : null}
@@ -188,26 +189,25 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
               <p className="mt-1 text-[14px] text-muted">{l.locationIsPrivate ? 'Approximate area only.' : 'Pin set by the business and checked by our team.'}</p>
               <div className="mt-3"><ListingMap lat={l.lat} lon={l.lon} label={l.title} /></div>
             </section>
-            <section>
-              <div className="flex items-baseline justify-between">
-                <h2 className="font-display text-xl font-extrabold">Reviews</h2>
+            <section id="experiences" className="scroll-mt-24">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="font-display text-xl font-extrabold">Traveller experiences</h2>
                 <Stars rating={l.rating} count={l.reviewCount} />
               </div>
-              <p className="mt-1 text-[14px] text-muted">Only travellers who contacted this business through Karibu can review it.</p>
-              <ul className="mt-4 flex flex-col gap-4">
-                {l.reviews.length === 0 ? <li className="text-muted">No reviews yet.</li> : null}
-                {l.reviews.map((r) => (
-                  <li key={r.id} className="card p-4">
-                    <div className="flex items-center justify-between">
-                      <strong>{r.author}</strong>
-                      <span className="text-[13px] text-muted">{shortDate(r.createdAt)}</span>
-                    </div>
-                    <div className="mt-1"><Stars rating={r.rating} count={1} size={13} /></div>
-                    {r.body ? <p className="mt-2">{r.body}</p> : null}
-                    {r.vendorReply ? <p className="mt-3 rounded-xl bg-soft p-3 text-[14px]"><strong>Reply from {l.vendorName}:</strong> {r.vendorReply}</p> : null}
-                  </li>
-                ))}
-              </ul>
+              {l.reviewCount > 0 ? (
+                <p className="mt-1 text-[14px] text-muted">
+                  {l.recommendAnswers > 0 ? <><strong className="text-ink">{Math.round((l.recommendYes / l.recommendAnswers) * 100)}% recommend</strong> · </> : null}
+                  {l.reviewCount} {l.reviewCount === 1 ? 'experience' : 'experiences'}
+                  {l.contactedCount > 0 ? ` · ${l.contactedCount} from travellers who contacted them through Karibu` : ''}
+                  {l.reviewCount < 3 ? ' · an average shows from 3' : ''}
+                </p>
+              ) : (
+                <p className="mt-1 text-[14px] text-muted">No experiences shared yet. Used this business? Your rating and what you paid help the next traveller.</p>
+              )}
+              <Link href={`/share/experience?listing=${l.slug}`} className="btn-primary mt-3"><Icon name="star" size={18} />Share your experience</Link>
+              <div className="mt-4 flex flex-col gap-4">
+                {l.reviews.map((r) => <ExperienceCard key={r.id} e={r} vendorName={l.vendorName} />)}
+              </div>
             </section>
             <Link href={`/report?listing=${l.id}&title=${encodeURIComponent(l.title)}`} className="inline-flex items-center gap-1.5 text-[14px] font-bold text-muted"><Icon name="flag" size={16} />Report wrong information or a problem</Link>
           </div>

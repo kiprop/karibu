@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { q, tx } from '../db/pool.js';
 import { requireRole } from '../auth.js';
-import { badRequest, notFound } from '../lib/util.js';
+import { badRequest, isCompanyEmail, notFound } from '../lib/util.js';
 
 const uuid = z.string().uuid();
 const staff = (req: any) => requireRole(req, 'reviewer', 'admin');
@@ -27,7 +27,8 @@ export async function adminRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: uuid }).parse(req.params);
     const l = await q(
       `SELECT l.*, ST_Y(l.location::geometry) AS lat, ST_X(l.location::geometry) AS lon, v.name AS vendor_name, v.id AS vendor_id,
-              v.whatsapp_e164, v.licence_number, v.verification_level, v.verified_at, c.name AS city
+              v.whatsapp_e164, v.licence_number, v.verification_level, v.verified_at, c.name AS city,
+              v.email AS vendor_email, v.email_verified_at IS NOT NULL AS vendor_email_verified, v.whatsapp_verified_at IS NOT NULL AS whatsapp_verified
          FROM listings l JOIN vendors v ON v.id = l.vendor_id JOIN cities c ON c.id = l.city_id WHERE l.id = $1`,
       [id],
     );
@@ -38,6 +39,7 @@ export async function adminRoutes(app: FastifyInstance) {
       q(`SELECT url, alt FROM listing_photos WHERE listing_id = $1 ORDER BY position`, [id]),
     ]);
     const { search_doc: _s, location: _loc, ...listing } = l.rows[0];
+    listing.vendor_email_is_company = listing.vendor_email ? isCompanyEmail(listing.vendor_email) : false;
     return { listing, documents: docs.rows, history: history.rows, photos: photos.rows };
   });
 
@@ -99,6 +101,29 @@ export async function adminRoutes(app: FastifyInstance) {
     const b = z.object({ suspended: z.boolean() }).parse(req.body);
     await q(`UPDATE vendors SET is_suspended = $2, updated_at = now() WHERE id = $1`, [id, b.suspended]);
     return { suspended: b.suspended };
+  });
+
+  // ---- Reviews ----
+  app.get('/admin/reviews', async (req) => {
+    staff(req);
+    const { view } = z.object({ view: z.enum(['recent', 'low', 'hidden']).default('recent') }).parse(req.query);
+    const where = view === 'hidden' ? `r.status = 'hidden'` : view === 'low' ? `r.status = 'published' AND r.rating <= 2` : `r.status = 'published'`;
+    const { rows } = await q(
+      `SELECT r.id, r.rating, r.recommend, r.body, r.created_at AS "createdAt", r.hidden_reason AS "hiddenReason", (r.enquiry_id IS NOT NULL) AS contacted,
+              l.title AS listing, v.name AS vendor, u.email, u.phone_e164 AS phone
+         FROM reviews r JOIN listings l ON l.id = r.listing_id JOIN vendors v ON v.id = l.vendor_id LEFT JOIN users u ON u.id = r.user_id
+        WHERE ${where} ORDER BY r.created_at DESC LIMIT 100`,
+    );
+    return { reviews: rows };
+  });
+
+  app.post('/admin/reviews/:id', async (req) => {
+    staff(req);
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const b = z.object({ hidden: z.boolean(), reason: z.string().trim().max(200).optional() }).parse(req.body);
+    const r = await q(`UPDATE reviews SET status = $2, hidden_reason = $3 WHERE id = $1 RETURNING id`, [id, b.hidden ? 'hidden' : 'published', b.hidden ? b.reason ?? null : null]);
+    if (!r.rows[0]) throw notFound();
+    return { hidden: b.hidden };
   });
 
   // ---- Reports ----
@@ -172,7 +197,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
   app.post('/admin/users/role', async (req) => {
     requireRole(req, 'admin');
-    const b = z.object({ email: z.string().email().optional(), phone: z.string().optional(), role: z.enum(['traveller', 'vendor', 'reviewer', 'admin']) }).refine((v) => v.email || v.phone, 'Give an email or phone').parse(req.body);
+    const b = z.object({ email: z.string().email().optional(), phone: z.string().optional(), role: z.enum(['traveller', 'reviewer', 'admin']) }).refine((v) => v.email || v.phone, 'Give an email or phone').parse(req.body);
     const r = await q(`UPDATE users SET role = $3 WHERE ($1::text IS NOT NULL AND email = lower($1)) OR ($2::text IS NOT NULL AND phone_e164 = $2) RETURNING id`, [b.email ?? null, b.phone ?? null, b.role]);
     if (!r.rows[0]) throw notFound('No user with that email or phone');
     return { ok: true };

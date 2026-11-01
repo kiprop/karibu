@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { q } from '../db/pool.js';
+import { q, tx } from '../db/pool.js';
 import { requireUser } from '../auth.js';
 import { HttpError, badRequest, notFound, randomToken } from '../lib/util.js';
 
@@ -187,6 +187,84 @@ export async function travellerRoutes(app: FastifyInstance) {
   });
 
   // ---- Reviews: only for a recorded enquiry that belongs to this traveller ----
+  // ---- Share your experience: stars, recommend or not, what you paid, what happened ----
+  // Needs sign-in so every rating has an accountable author. A matching Karibu enquiry earns the
+  // "Contacted through Karibu" badge. Sharing again updates the same experience.
+  app.post('/experiences', { config: { rateLimit: { max: 20, timeWindow: '1 hour' } } }, async (req) => {
+    const u = requireUser(req);
+    const b = z
+      .object({
+        listingSlug: z.string().max(120),
+        rating: z.number().int().min(1).max(5),
+        recommend: z.boolean().optional(),
+        body: z.string().trim().max(2000).optional(),
+        visitedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        refCode: z.string().regex(/^K-[2-9A-HJ-NP-Z]{5}$/).optional(),
+        price: z
+          .object({
+            group: z.enum(['food', 'drink', 'transport', 'stay', 'activity', 'shopping', 'other']),
+            item: z.string().trim().min(2).max(80),
+            amount: z.number().int().positive().max(99_999_999),
+            unit: z.string().trim().max(40).optional(),
+            feel: z.enum(['fair', 'high', 'ripoff']).optional(),
+          })
+          .optional(),
+      })
+      .parse(req.body);
+    if (b.visitedOn && new Date(b.visitedOn).getTime() > Date.now() + 86_400_000) throw badRequest('That date is in the future');
+
+    const l = await q<{ id: string; vendor_id: string; city_id: number; currency: string }>(
+      `SELECT id, vendor_id, city_id, currency FROM public_listings WHERE slug = $1`,
+      [b.listingSlug],
+    );
+    const listing = l.rows[0];
+    if (!listing) throw notFound('That listing isn’t available');
+    const own = await q(`SELECT 1 FROM vendor_members WHERE vendor_id = $1 AND user_id = $2`, [listing.vendor_id, u.id]);
+    if (own.rows[0]) throw new HttpError(403, 'You can’t review your own business', 'own_business');
+
+    return tx(async (c) => {
+      // Link to the traveller's own enquiry with this business, if there is one not yet reviewed.
+      const enq = await c.query(
+        `SELECT e.id FROM enquiries e LEFT JOIN reviews r ON r.enquiry_id = e.id
+          WHERE e.user_id = $1 AND e.listing_id = $2 AND r.id IS NULL ${b.refCode ? 'AND e.ref_code = $3' : ''}
+          ORDER BY e.created_at DESC LIMIT 1`,
+        b.refCode ? [u.id, listing.id, b.refCode] : [u.id, listing.id],
+      );
+      if (b.refCode && !enq.rows[0]) throw new HttpError(403, 'That reference isn’t one of your enquiries with this business', 'not_your_enquiry');
+      const enquiryId: string | null = enq.rows[0]?.id ?? null;
+
+      const existing = enquiryId
+        ? { rows: [] as any[] }
+        : await c.query(`SELECT id, price_report_id FROM reviews WHERE listing_id = $1 AND user_id = $2 AND enquiry_id IS NULL`, [listing.id, u.id]);
+      const prev = existing.rows[0];
+
+      let priceId: string | null = prev?.price_report_id ?? null;
+      if (b.price) {
+        if (priceId) await c.query(`DELETE FROM price_reports WHERE id = $1`, [priceId]);
+        const pr = await c.query(
+          `INSERT INTO price_reports (city_id, listing_id, group_name, item, amount, currency, unit, paid_on, feel, user_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,coalesce($8::date, current_date),$9,$10) RETURNING id`,
+          [listing.city_id, listing.id, b.price.group, b.price.item, b.price.amount, listing.currency, b.price.unit || null, b.visitedOn ?? null, b.price.feel ?? null, u.id],
+        );
+        priceId = pr.rows[0].id;
+      }
+
+      if (prev) {
+        await c.query(
+          `UPDATE reviews SET rating = $2, recommend = $3, body = $4, visited_on = $5, price_report_id = $6, updated_at = now() WHERE id = $1`,
+          [prev.id, b.rating, b.recommend ?? null, b.body || null, b.visitedOn ?? null, priceId],
+        );
+        return { review: { id: prev.id }, updated: true, contacted: false };
+      }
+      const ins = await c.query(
+        `INSERT INTO reviews (enquiry_id, listing_id, user_id, rating, recommend, body, visited_on, price_report_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+        [enquiryId, listing.id, u.id, b.rating, b.recommend ?? null, b.body || null, b.visitedOn ?? null, priceId],
+      );
+      return { review: { id: ins.rows[0].id }, updated: false, contacted: !!enquiryId };
+    });
+  });
+
   app.post('/reviews', { config: { rateLimit: { max: 20, timeWindow: '1 hour' } } }, async (req) => {
     const u = requireUser(req);
     const b = z.object({ refCode: z.string().regex(/^K-[2-9A-HJ-NP-Z]{5}$/), rating: z.number().int().min(1).max(5), body: z.string().trim().max(2000).optional() }).parse(req.body);

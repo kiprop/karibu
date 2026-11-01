@@ -24,6 +24,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const me = await getMe();
   const role = me.user?.role;
+  const hasBusiness = (me.vendors?.length ?? 0) > 0;
   return (
     <html lang="en">
       <body className="min-h-screen">
@@ -41,14 +42,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link className="btn-ghost min-h-[38px] px-3 text-[14px]" href="/explore">Explore</Link>
                 <Link className="btn-ghost min-h-[38px] px-3 text-[14px]" href="/explore?category=safari">Game drives</Link>
                 <Link className="btn-ghost min-h-[38px] px-3 text-[14px]" href="/explore?category=stay">Stays</Link>
+                <Link className="btn-ghost min-h-[38px] px-3 text-[14px]" href="/safety/prices">Fair prices</Link>
                 <Link className="btn-ghost min-h-[38px] px-3 text-[14px]" href="/safety">Travel smart</Link>
               </nav>
               <div className="ml-auto flex items-center gap-2">
-                <Link href="/saved" className="btn-ghost min-h-[38px] px-3 text-[14px]" aria-label="Saved and trips">
-                  <Icon name="heart" size={18} /> <span className="hidden sm:inline">Saved</span>
+                <Link href="/share" className="btn-primary hidden min-h-[38px] px-4 text-[14px] md:inline-flex">
+                  <Icon name="plus" size={18} /> Share
+                </Link>
+                <Link href="/saved" className="btn-ghost hidden min-h-[38px] px-3 text-[14px] md:inline-flex" aria-label="Saved and trips">
+                  <Icon name="heart" size={18} /> <span className="hidden lg:inline">Saved</span>
                 </Link>
                 {role === 'reviewer' || role === 'admin' ? <Link href="/admin" className="btn-ghost min-h-[38px] px-3 text-[14px]">Admin</Link> : null}
-                {role === 'vendor' ? <Link href="/vendor" className="btn-ghost min-h-[38px] px-3 text-[14px]">My business</Link> : null}
+                {hasBusiness ? (
+                  <Link href="/vendor" className="btn-ghost min-h-[38px] px-3 text-[14px]"><Icon name="briefcase" size={18} /> <span className="hidden sm:inline">My business</span></Link>
+                ) : (
+                  <Link href="/vendor" className="btn-ghost hidden min-h-[38px] px-3 text-[14px] lg:inline-flex">List your business</Link>
+                )}
                 {me.user ? (
                   <Link href="/account" className="btn-outline min-h-[38px] px-3 text-[14px]">
                     <Icon name="user" size={18} /> <span className="hidden sm:inline">Account</span>
@@ -59,7 +68,28 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </div>
             </div>
           </header>
-          <main id="main">{children}</main>
+          <main id="main" className="pb-20 md:pb-0">{children}</main>
+          {/* Phones: the main places, always one tap away. Share sits in the middle on purpose. */}
+          <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel backdrop-blur md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <div className="grid grid-cols-5 text-[11px] font-bold">
+              {[
+                ['/explore', 'search', 'Explore'],
+                ['/safety/prices', 'tag', 'Prices'],
+                ['/share', 'plus', 'Share'],
+                ['/safety', 'shield', 'Travel smart'],
+                ['/saved', 'heart', 'Saved'],
+              ].map(([href, icon, label]) => (
+                <Link key={href} href={href} className="flex min-h-[60px] flex-col items-center justify-center gap-1 text-muted">
+                  {href === '/share' ? (
+                    <span className="-mt-5 grid h-12 w-12 place-items-center rounded-full bg-brand text-white shadow-lg"><Icon name={icon} size={24} /></span>
+                  ) : (
+                    <Icon name={icon} size={22} />
+                  )}
+                  <span className={href === '/share' ? 'text-brand' : ''}>{label}</span>
+                </Link>
+              ))}
+            </div>
+          </nav>
           <footer className="mt-16 border-t border-line">
             <div className="container-k grid gap-8 py-10 text-[14px] sm:grid-cols-3">
               <div>
@@ -71,7 +101,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <span className="eyebrow">Travellers</span>
                 <Link href="/explore">Explore listings</Link>
                 <Link href="/safety/check">Check an operator</Link>
-                <Link href="/safety">Before you go</Link>
+                <Link href="/safety/prices">Fair prices and “I paid this much”</Link>
+                <Link href="/share">Share your experience</Link>
+                <Link href="/safety#official">Official government links</Link>
                 <Link href="/recommend">Recommend a business</Link>
               </div>
               <div className="flex flex-col gap-2">

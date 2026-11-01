@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { q } from '../db/pool.js';
 import { AMENITIES, CATEGORIES, SUBTYPES } from '../lib/categories.js';
-import { badRequest, notFound, whatsappUrl } from '../lib/util.js';
+import { HttpError, badRequest, notFound, whatsappUrl } from '../lib/util.js';
 
 const CARD_FIELDS = `
   pl.id, pl.slug, pl.title, pl.summary, pl.category, pl.subtype, pl.budget_tier AS "budgetTier",
@@ -134,7 +134,8 @@ export async function publicRoutes(app: FastifyInstance) {
     const { rows } = await q(
       `SELECT ${CARD_FIELDS}, pl.description, pl.attributes, pl.location_is_private AS "locationIsPrivate",
               pl.vendor_slug AS "vendorSlug", pl.whatsapp_e164 AS whatsapp, pl.vendor_phone AS phone, pl.vendor_email AS email,
-              pl.published_at AS "publishedAt"
+              pl.published_at AS "publishedAt",
+              coalesce(r.recommend_answers, 0) AS "recommendAnswers", coalesce(r.recommend_yes, 0) AS "recommendYes", coalesce(r.contacted_count, 0) AS "contactedCount"
          FROM public_listings pl LEFT JOIN listing_ratings r ON r.listing_id = pl.id
         WHERE pl.slug = $1`,
       [slug],
@@ -156,8 +157,10 @@ export async function publicRoutes(app: FastifyInstance) {
       ),
       q(
         `SELECT r.id, r.rating, r.body, r.vendor_reply AS "vendorReply", r.created_at AS "createdAt",
-                coalesce(split_part(u.display_name, ' ', 1), 'Traveller') AS author
-           FROM reviews r LEFT JOIN users u ON u.id = r.user_id
+                coalesce(split_part(u.display_name, ' ', 1), 'Traveller') AS author,
+                r.recommend, r.visited_on AS "visitedOn", (r.enquiry_id IS NOT NULL) AS contacted,
+                CASE WHEN p.id IS NOT NULL AND NOT p.is_hidden THEN json_build_object('item', p.item, 'amount', p.amount, 'currency', p.currency, 'unit', p.unit, 'feel', p.feel) END AS paid
+           FROM reviews r LEFT JOIN users u ON u.id = r.user_id LEFT JOIN price_reports p ON p.id = r.price_report_id
           WHERE r.listing_id = $1 AND r.status = 'published' ORDER BY r.created_at DESC LIMIT 20`,
         [l.id],
       ),
@@ -229,9 +232,83 @@ export async function publicRoutes(app: FastifyInstance) {
     return { result, watchlist: watch.rows[0] ?? null, matches: vendors.rows };
   });
 
+  // ---- Latest traveller experiences across Karibu (the Share page feed) ----
+  app.get('/experiences/recent', async (req) => {
+    const { limit } = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20) }).parse(req.query);
+    const { rows } = await q(
+      `SELECT r.id, r.rating, r.recommend, r.body, r.visited_on AS "visitedOn", r.created_at AS "createdAt", (r.enquiry_id IS NOT NULL) AS contacted,
+              coalesce(split_part(u.display_name, ' ', 1), 'Traveller') AS author,
+              pl.title AS "listingTitle", pl.slug AS "listingSlug", pl.city_name AS city, pl.category,
+              CASE WHEN p.id IS NOT NULL AND NOT p.is_hidden THEN json_build_object('item', p.item, 'amount', p.amount, 'currency', p.currency, 'unit', p.unit) END AS paid
+         FROM reviews r JOIN public_listings pl ON pl.id = r.listing_id
+         LEFT JOIN users u ON u.id = r.user_id LEFT JOIN price_reports p ON p.id = r.price_report_id
+        WHERE r.status = 'published' ORDER BY r.created_at DESC LIMIT $1`,
+      [limit],
+    );
+    return { experiences: rows };
+  });
+
+  // ---- Shareable business page and live badge ----
+  // Only verified, active businesses get a public page. Anyone following an old link or QR code to a business
+  // that is suspended or lapsed sees that it isn't verified now, which is the point of a live page.
+  async function publicVendor(slug: string) {
+    const { rows } = await q(
+      `SELECT v.id, v.name, v.slug, v.about, v.website, v.country_code AS country, v.verification_level AS "verificationLevel",
+              v.verified_at AS "verifiedAt", v.created_at AS "since", v.email_verified_at IS NOT NULL AS "emailVerified",
+              v.whatsapp_verified_at IS NOT NULL AS "whatsappVerified", co.name AS "countryName",
+              (NOT v.is_suspended AND v.verification_level >= 1 AND (v.reverify_due IS NULL OR v.reverify_due >= current_date)) AS active
+         FROM vendors v JOIN countries co ON co.code = v.country_code WHERE v.slug = $1`,
+      [slug],
+    );
+    return rows[0] ?? null;
+  }
+
+  app.get('/businesses/:slug', async (req) => {
+    const { slug } = z.object({ slug: z.string().max(140) }).parse(req.params);
+    const v = await publicVendor(slug);
+    if (!v) throw notFound('We couldn’t find that business on Karibu');
+    if (!v.active) throw new HttpError(404, `${v.name} isn’t verified on Karibu right now. Be careful before paying.`, 'not_verified');
+    const [listings, agg] = await Promise.all([
+      q(`SELECT ${CARD_FIELDS} FROM public_listings pl LEFT JOIN listing_ratings r ON r.listing_id = pl.id WHERE pl.vendor_id = $1 ORDER BY pl.title`, [v.id]),
+      q(
+        `SELECT coalesce(sum(r.review_count),0)::int AS reviews, round(sum(r.rating * r.review_count) / nullif(sum(r.review_count),0), 1)::float AS rating,
+                coalesce(sum(r.recommend_answers),0)::int AS "recommendAnswers", coalesce(sum(r.recommend_yes),0)::int AS "recommendYes"
+           FROM listing_ratings r JOIN listings l ON l.id = r.listing_id WHERE l.vendor_id = $1`,
+        [v.id],
+      ),
+    ]);
+    const a = agg.rows[0];
+    const { id: _id, active: _a, ...vendor } = v;
+    return {
+      business: { ...vendor, reviews: a.reviews, rating: a.reviews >= 3 ? a.rating : null, recommendAnswers: a.recommendAnswers, recommendYes: a.recommendYes },
+      listings: listings.rows.map((r: any) => ({ ...r, rating: (r.reviewCount ?? 0) >= 3 ? r.rating : null })),
+    };
+  });
+
+  // Live SVG badge for a business's own website or email signature. Turns into a warning if verification lapses.
+  app.get('/businesses/:slug/badge.svg', async (req, reply) => {
+    const { slug } = z.object({ slug: z.string().max(140) }).parse(req.params);
+    const v = await publicVendor(slug);
+    const ok = !!v?.active;
+    const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!);
+    const levels = ['', 'Contact checked', 'Documents checked', 'Visited'];
+    const line1 = ok ? 'Verified on Karibu' : 'Not verified on Karibu';
+    const line2 = ok ? `${levels[v.verificationLevel]} · ${new Date(v.verifiedAt).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}` : 'Check before you pay';
+    const bg = ok ? '#0A7D70' : '#B42318';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="52" viewBox="0 0 220 52" role="img" aria-label="${esc(line1)}: ${esc(line2)}">
+  <rect width="220" height="52" rx="12" fill="${bg}"/>
+  <path d="M26 12l11 4v8c0 7-5 12-11 15-6-3-11-8-11-15v-8z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/>
+  ${ok ? '<path d="M21 25l4 4 7-8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' : '<path d="M26 19v7M26 31v.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>'}
+  <text x="48" y="23" font-family="Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#fff">${esc(line1)}</text>
+  <text x="48" y="40" font-family="Helvetica,Arial,sans-serif" font-size="11.5" fill="#fff" opacity=".92">${esc(line2)}</text>
+</svg>`;
+    reply.header('content-type', 'image/svg+xml; charset=utf-8').header('cache-control', 'public, max-age=3600').header('cross-origin-resource-policy', 'cross-origin');
+    return svg;
+  });
+
   app.get('/countries/:code/info', async (req) => {
     const { code } = z.object({ code: z.string().length(2).toUpperCase() }).parse(req.params);
-    const [country, pages, contacts, advisories] = await Promise.all([
+    const [country, pages, contacts, advisories, links] = await Promise.all([
       q(`SELECT code, name, currency, time_zone AS "timeZone", languages, is_live AS "isLive" FROM countries WHERE code = $1`, [code]),
       q(
         `SELECT slug, title, body_md AS body, source_urls AS sources, last_reviewed_on AS "lastReviewedOn",
@@ -251,9 +328,15 @@ export async function publicRoutes(app: FastifyInstance) {
           ORDER BY a.starts_at DESC`,
         [code],
       ),
+      q(
+        `SELECT topic, title, url, description, warning, last_checked_on AS "lastCheckedOn", last_checked_on < current_date - 90 AS stale
+           FROM country_links WHERE country_code = $1 AND is_active
+          ORDER BY array_position(ARRAY['entry','business_check','parks','transport','health','safety','embassies','complaints','tourism'], topic), position`,
+        [code],
+      ),
     ]);
     if (!country.rows[0]) throw notFound('Unknown country');
-    return { country: country.rows[0], pages: pages.rows, contacts: contacts.rows, advisories: advisories.rows };
+    return { country: country.rows[0], pages: pages.rows, contacts: contacts.rows, advisories: advisories.rows, links: links.rows };
   });
 
   app.post('/reports', { config: { rateLimit: { max: 10, timeWindow: '1 hour' } } }, async (req) => {

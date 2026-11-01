@@ -16,7 +16,7 @@ type Detail = {
 };
 
 const LEVELS = [
-  { n: 1, t: 'Level 1: phone and WhatsApp confirmed' },
+  { n: 1, t: 'Level 1: WhatsApp or company email verified, identity checked' },
   { n: 2, t: 'Level 2: business documents and licence checked' },
   { n: 3, t: 'Level 3: in-person visit done' },
 ];
@@ -63,13 +63,13 @@ export default function Admin() {
     <div className="container-k py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><p className="eyebrow">Trust and safety</p><h1 className="font-display text-3xl font-extrabold">Review queue</h1></div>
-        <span className="flex gap-2"><Link href="/admin/prices" className="btn-outline">Price reports</Link><Link href="/admin/reports" className="btn-outline">Reports</Link></span>
+        <span className="flex flex-wrap gap-2"><Link href="/admin/experiences" className="btn-outline">Experiences</Link><Link href="/admin/prices" className="btn-outline">Price reports</Link><Link href="/admin/reports" className="btn-outline">Reports</Link></span>
       </div>
-      {msg ? <p role="status" className="mt-4 rounded-xl bg-surface-2 p-3 font-semibold">{msg}</p> : null}
+      {msg ? <p role="status" className="mt-4 rounded-xl bg-soft p-3 font-semibold">{msg}</p> : null}
       <div className="mt-6 grid gap-6 lg:grid-cols-[360px_1fr]">
         <section className="card divide-y divide-line">
           {queue === null ? <p className="p-4 text-muted">Loading…</p> : queue.length === 0 ? <p className="p-4 text-muted">Nothing waiting. Nice.</p> : queue.map((q) => (
-            <button key={q.id} onClick={() => setSel(q.id)} className={`block w-full p-4 text-left hover:bg-surface-2 ${sel === q.id ? 'bg-brand-soft' : ''}`}>
+            <button key={q.id} onClick={() => setSel(q.id)} className={`block w-full p-4 text-left hover:bg-soft ${sel === q.id ? 'bg-brand-soft' : ''}`}>
               <div className="font-bold">{q.title}</div>
               <div className="text-[13px] text-muted">{CATEGORY_SINGULAR[q.category]} · {q.city} · {q.vendor}</div>
               <div className="mt-1 flex flex-wrap gap-1.5 text-[12px]">
@@ -91,7 +91,8 @@ export default function Admin() {
                 <p className="mt-3">{l.summary}</p>
                 {l.description ? <p className="mt-2 whitespace-pre-line text-[15px] text-muted">{l.description}</p> : null}
                 <dl className="mt-4 grid gap-2 text-[14px] sm:grid-cols-2">
-                  <div><dt className="font-bold">WhatsApp</dt><dd className="font-mono">{l.whatsapp_e164}</dd></div>
+                  <div><dt className="font-bold">WhatsApp</dt><dd className="font-mono">{l.whatsapp_e164} {l.whatsapp_verified ? <span className="chip bg-teal-soft text-teal">verified</span> : <span className="chip bg-amber-soft text-amber">unverified</span>}</dd></div>
+                  <div><dt className="font-bold">Business email</dt><dd>{l.vendor_email ? <><span className="font-mono">{l.vendor_email}</span> {l.vendor_email_verified ? <span className="chip bg-teal-soft text-teal">verified</span> : <span className="chip bg-amber-soft text-amber">unverified</span>} {l.vendor_email_is_company ? <span className="chip">company domain</span> : <span className="chip">free webmail</span>}</> : 'None given'}</dd></div>
                   <div><dt className="font-bold">Licence</dt><dd>{l.licence_number ?? 'None given'}</dd></div>
                   <div><dt className="font-bold">Location</dt><dd className="font-mono">{Number(l.lat).toFixed(5)}, {Number(l.lon).toFixed(5)} {l.location_is_private ? '(private home)' : ''}</dd></div>
                   <div><dt className="font-bold">Price</dt><dd>{l.price_from ?? '?'} to {l.price_to ?? '?'} {l.currency} {l.price_unit}</dd></div>

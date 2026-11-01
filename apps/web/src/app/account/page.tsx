@@ -5,6 +5,61 @@ import { useEffect, useState } from 'react';
 import { call } from '@/lib/client-api';
 import { useSession } from '@/components/Session';
 import { shortDate } from '@/lib/format';
+import { AuthForm } from '@/components/AuthForm';
+import { Icon } from '@/components/Icon';
+
+/** Ways to sign in to this one account. Adding the other one lets a business owner use phone or email. */
+function SignInMethods() {
+  const { me } = useSession();
+  const [s, setS] = useState(me.signIn);
+  const [adding, setAdding] = useState<'email' | 'phone' | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const refresh = () => call<{ signIn: typeof s }>('/me').then((r) => setS(r.signIn)).catch(() => {});
+  async function remove(m: 'email' | 'phone') {
+    if (!confirm(`Stop signing in with this ${m}?`)) return;
+    setErr(null);
+    try {
+      await call(`/me/sign-in/${m}`, { method: 'DELETE' });
+      refresh();
+    } catch (x) {
+      setErr((x as Error).message);
+    }
+  }
+  if (!s) return null;
+  const rows: { m: 'email' | 'phone'; label: string; value: string | null; ok: boolean }[] = [
+    { m: 'email', label: 'Email', value: s.email, ok: s.emailVerified },
+    { m: 'phone', label: 'Mobile', value: s.phone, ok: s.phoneVerified },
+  ];
+  return (
+    <section className="mt-10 card flex flex-col gap-3 p-5">
+      <h2 className="text-lg font-extrabold">How you sign in</h2>
+      <p className="text-[14px] text-muted">One account for travel and business. Add both so you can sign in with either.</p>
+      <ul className="divide-y divide-line">
+        {rows.map((r) => (
+          <li key={r.m} className="flex flex-wrap items-center justify-between gap-2 py-3">
+            <span>
+              <span className="block text-[13px] font-bold text-muted">{r.label}</span>
+              {r.value ? <span className="font-semibold">{r.value} {r.ok ? <span className="chip ml-1 bg-teal-soft text-teal"><Icon name="check" size={12} strokeWidth={3} />Confirmed</span> : null}</span> : <span className="text-muted">Not added</span>}
+            </span>
+            {r.value ? (
+              <button className="btn-ghost h-9 text-[14px]" onClick={() => remove(r.m)}>Remove</button>
+            ) : (
+              <button className="btn-outline h-9 text-[14px]" onClick={() => setAdding(r.m)}>Add {r.m === 'email' ? 'email' : 'mobile'}</button>
+            )}
+          </li>
+        ))}
+        {s.google ? <li className="py-3"><span className="block text-[13px] font-bold text-muted">Google</span><span className="font-semibold">Connected</span></li> : null}
+      </ul>
+      {adding ? (
+        <div className="rounded-2xl bg-soft p-4">
+          <AuthForm mode="add" only={adding} next="/account" onLinked={() => { setAdding(null); refresh(); }} />
+          <button className="mt-2 text-[14px] font-bold text-muted" onClick={() => setAdding(null)}>Cancel</button>
+        </div>
+      ) : null}
+      {err ? <p role="alert" className="text-[14px] text-danger">{err}</p> : null}
+    </section>
+  );
+}
 
 type Enq = { id: string; refCode: string; createdAt: string; slug: string | null; title: string | null; vendorName: string; reviewed: boolean };
 
@@ -92,13 +147,25 @@ export default function Account() {
                   {e.slug ? <Link href={`/listing/${e.slug}`} className="font-bold hover:underline">{e.title}</Link> : <strong>{e.vendorName}</strong>}
                   <div className="text-[13px] text-muted">{e.vendorName} · ref <span className="font-mono">{e.refCode}</span> · {shortDate(e.createdAt)}</div>
                 </div>
-                {e.reviewed ? <span className="chip bg-teal-soft text-teal">Reviewed</span> : <button className="btn-outline min-h-[38px]" onClick={() => setOpen(open === e.id ? null : e.id)}>Rate this business</button>}
+                {e.reviewed ? <span className="chip bg-teal-soft text-teal">Shared</span> : e.slug ? <Link className="btn-outline min-h-[38px]" href={`/share/experience?listing=${e.slug}&ref=${e.refCode}`}>Share your experience</Link> : null}
               </div>
-              {open === e.id ? <ReviewForm e={e} onDone={() => { setOpen(null); load(); }} /> : null}
             </li>
           ))}
         </ul>
       </section>
+
+      <SignInMethods />
+
+      {me.vendors?.length ? (
+        <section className="mt-10 card flex flex-wrap items-center justify-between gap-3 p-5">
+          <span><span className="block text-lg font-extrabold">Your business{me.vendors.length > 1 ? 'es' : ''}</span><span className="text-muted">{me.vendors.map((v) => v.name).join(', ')}</span></span>
+          <Link href="/vendor" className="btn-dark">Open business tools</Link>
+        </section>
+      ) : (
+        <section className="mt-10 rounded-2xl bg-soft p-5 text-[15px]">
+          Run a camp, a 4x4, a tour or a guiding business? <Link href="/vendor" className="font-bold text-brand underline">List it free</Link> from this same account.
+        </section>
+      )}
 
       <section className="mt-10 card flex flex-col gap-3 p-5">
         <h2 className="text-lg font-extrabold">Profile</h2>

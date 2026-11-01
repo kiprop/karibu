@@ -17,8 +17,8 @@ export default function Plans() {
 
   useEffect(() => {
     call<{ plans: Plan[]; earlyAccess: boolean }>('/plans').then((r) => { setPlans(r.plans); setEarly(r.earlyAccess); });
-    if (me.user?.role === 'vendor') call<{ vendor: { plan: { code: string } } }>('/vendor/me').then((r) => setCurrent(r.vendor.plan.code)).catch(() => {});
-  }, [me.user]);
+    if (me.vendors?.length) call<{ vendor: { plan: { code: string } } }>('/vendor/me').then((r) => setCurrent(r.vendor.plan.code)).catch(() => {});
+  }, [me.vendors]);
 
   async function choose(code: string) {
     setMsg(null);
@@ -49,10 +49,10 @@ export default function Plans() {
               {p.features.map((f) => <li key={f} className="flex gap-2"><Icon name="check" size={18} className="mt-0.5 text-teal" strokeWidth={3} />{f}</li>)}
             </ul>
             <div className="mt-auto pt-3">
-              {me.user?.role === 'vendor' ? (
+              {me.vendors?.length ? (
                 current === p.code ? <span className="btn-outline w-full cursor-default">Current plan</span> : <button className="btn-primary w-full" onClick={() => choose(p.code)}>Choose {p.name}</button>
               ) : (
-                <Link href="/vendor/signin" className="btn-primary w-full">Get started</Link>
+                <Link href={me.user ? '/vendor' : '/signin?for=business&next=/vendor'} className="btn-primary w-full">Get started</Link>
               )}
             </div>
           </section>
