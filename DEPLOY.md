@@ -44,6 +44,8 @@ In the Cloudflare dashboard:
    - Service: `HTTP` and `web:3000`
 4. Save. Cloudflare creates the `karibu` DNS record for you.
 
+If saving fails with "a record with that host already exists", go to **DNS → Records**, delete the existing `karibu` record (often an A record left over from a web host such as Hostinger), and save the hostname again. A subdomain created at a web host does nothing while Cloudflare manages your DNS, so you can remove it there too.
+
 ## 4. Sign-in emails (required)
 
 In production, sign-in links are emailed. Until email is set up, **nobody can sign in, including you**.
