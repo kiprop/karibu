@@ -10,7 +10,8 @@ import { Verdict, type FairResult } from '../Verdict';
 type City = { slug: string; name: string };
 const GROUPS = [
   ['food', 'Food'], ['drink', 'Drink'], ['transport', 'Ride or transport'], ['activity', 'Tour or activity'],
-  ['stay', 'Stay'], ['shopping', 'Shopping'], ['other', 'Other'],
+  ['stay', 'Stay'], ['shopping', 'Shopping'], ['home', 'Furniture or home'], ['services', 'Home service'],
+  ['utilities', 'Internet or utilities'], ['grooming', 'Hair or grooming'], ['other', 'Other'],
 ] as const;
 const FEELS = [['fair', 'Fair'], ['high', 'A bit high'], ['ripoff', 'I was overcharged']] as const;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -38,7 +39,7 @@ function AddPrice() {
         .then(({ listing: l }) => {
           setListing({ title: l.title, city: l.city, currency: l.currency, category: l.category });
           setCity(l.citySlug);
-          set('group', l.category === 'stay' ? 'stay' : l.category === 'transport' ? 'transport' : 'activity');
+          set('group', ({ stay: 'stay', transport: 'transport', home: 'home', furniture: 'home', home_services: 'services', utilities: 'utilities', grooming: 'grooming' } as Record<string, string>)[l.category] ?? 'activity');
           if (!sp.get('item')) set('item', l.title.slice(0, 80));
         })
         .catch(() => setErr('That listing isn’t available any more. You can still add a price for the city.'));

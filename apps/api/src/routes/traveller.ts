@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { PRICE_GROUPS } from './prices.js';
+import { TRAVELLER_TYPES } from './public.js';
 import { q, tx } from '../db/pool.js';
 import { requireUser } from '../auth.js';
 import { HttpError, badRequest, notFound, randomToken } from '../lib/util.js';
@@ -197,12 +199,13 @@ export async function travellerRoutes(app: FastifyInstance) {
         listingSlug: z.string().max(120),
         rating: z.number().int().min(1).max(5),
         recommend: z.boolean().optional(),
+        travellerType: z.enum(TRAVELLER_TYPES).optional(),
         body: z.string().trim().max(2000).optional(),
         visitedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         refCode: z.string().regex(/^K-[2-9A-HJ-NP-Z]{5}$/).optional(),
         price: z
           .object({
-            group: z.enum(['food', 'drink', 'transport', 'stay', 'activity', 'shopping', 'other']),
+            group: z.enum(PRICE_GROUPS),
             item: z.string().trim().min(2).max(80),
             amount: z.number().int().positive().max(99_999_999),
             unit: z.string().trim().max(40).optional(),
@@ -251,15 +254,15 @@ export async function travellerRoutes(app: FastifyInstance) {
 
       if (prev) {
         await c.query(
-          `UPDATE reviews SET rating = $2, recommend = $3, body = $4, visited_on = $5, price_report_id = $6, updated_at = now() WHERE id = $1`,
-          [prev.id, b.rating, b.recommend ?? null, b.body || null, b.visitedOn ?? null, priceId],
+          `UPDATE reviews SET rating = $2, recommend = $3, body = $4, visited_on = $5, price_report_id = $6, traveller_type = $7, updated_at = now() WHERE id = $1`,
+          [prev.id, b.rating, b.recommend ?? null, b.body || null, b.visitedOn ?? null, priceId, b.travellerType ?? null],
         );
         return { review: { id: prev.id }, updated: true, contacted: false };
       }
       const ins = await c.query(
-        `INSERT INTO reviews (enquiry_id, listing_id, user_id, rating, recommend, body, visited_on, price_report_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-        [enquiryId, listing.id, u.id, b.rating, b.recommend ?? null, b.body || null, b.visitedOn ?? null, priceId],
+        `INSERT INTO reviews (enquiry_id, listing_id, user_id, rating, recommend, body, visited_on, price_report_id, traveller_type)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+        [enquiryId, listing.id, u.id, b.rating, b.recommend ?? null, b.body || null, b.visitedOn ?? null, priceId, b.travellerType ?? null],
       );
       return { review: { id: ins.rows[0].id }, updated: false, contacted: !!enquiryId };
     });

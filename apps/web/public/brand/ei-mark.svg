@@ -1,0 +1,8 @@
+<!-- PLACEHOLDER Enkop Intelligence mark. Replace this file with the real Enkop logo (SVG or PNG, any aspect ratio);
+     the header, footer, sign-in and app icon all read /brand/ei-mark.svg. Colours from the Enkop "Beacon" palette. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Enkop Intelligence">
+  <rect width="64" height="64" rx="14" fill="#14181D"/>
+  <path d="M8 16h48M8 32h48M8 48h48M16 8v48M32 8v48M48 8v48" stroke="#ffffff" stroke-opacity=".06" stroke-width="1"/>
+  <text x="32" y="42" text-anchor="middle" font-family="Fraunces, Georgia, 'Times New Roman', serif" font-size="27" font-weight="700" fill="#F0A83C" letter-spacing="-0.5">EI</text>
+  <rect x="17" y="47" width="30" height="3" rx="1.5" fill="#F0A83C"/>
+</svg>

@@ -1,9 +1,15 @@
 {
-  "name": "Karibu: verified travel in East Africa",
-  "short_name": "Karibu",
+  "name": "EI Karibu: verified travel and living in East Africa",
+  "short_name": "EI Karibu",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F7F4EF",
-  "theme_color": "#E64B24",
-  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "theme_color": "#14181D",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
 }

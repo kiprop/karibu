@@ -33,6 +33,14 @@ const paths: Record<string, string> = {
   briefcase: 'M3 8h18v12H3zM8 8V5h8v3',
   phone: 'M7 3h10v18H7zM11 18h2',
   upload: 'M12 16V4M7 9l5-5 5 5M5 20h14',
+  home: 'M3 11l9-7 9 7M5 10v10h14V10M10 20v-6h4v6',
+  sofa: 'M4 11V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3M2 12a2 2 0 0 1 4 0v2h12v-2a2 2 0 0 1 4 0v5H2zM5 17v2M19 17v2',
+  wrench: 'M14.5 6.5a4 4 0 0 0 5 5L20 12l-8.5 8.5a2.1 2.1 0 0 1-3-3L17 9l.5-.5a4 4 0 0 0-3-2z',
+  wifi: 'M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01',
+  scissors: 'M6 6a2.5 2.5 0 1 0 0 .01M6 18a2.5 2.5 0 1 0 0 .01M8 7.5L20 18M8 16.5L20 6',
+  key: 'M8 14a4 4 0 1 1 3.5-6H21v3h-2v2h-3v-2h-4.5A4 4 0 0 1 8 14z',
+  thumb: 'M7 11v9H4v-9zM7 11l4-7a2 2 0 0 1 3 2l-1 4h6a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 17.8 20H7',
+  camera: 'M4 8h3l2-3h6l2 3h3v11H4zM12 10a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z',
 };
 
 export function Icon({ name, size = 20, className = '', strokeWidth = 2, filled = false, title }: { name: keyof typeof paths | string; size?: number; className?: string; strokeWidth?: number; filled?: boolean; title?: string }) {
@@ -58,4 +66,5 @@ export function Icon({ name, size = 20, className = '', strokeWidth = 2, filled 
 
 export const CATEGORY_ICON: Record<string, string> = {
   stay: 'bed', safari: 'binoculars', transport: 'car', guide: 'people', experience: 'mtn', event: 'music',
+  home: 'home', furniture: 'sofa', home_services: 'wrench', utilities: 'wifi', grooming: 'scissors',
 };

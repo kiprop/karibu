@@ -13,7 +13,10 @@ type Recent = { id: string; item: string; amount: number; currency: string; unit
 type Board = { city: { slug: string; name: string; currency: string }; prices: Checked[]; community: Community[]; recent: Recent[]; minReports: number };
 type City = { slug: string; name: string };
 
-const GROUP_LABEL: Record<string, string> = { food: 'Food', drink: 'Drinks', transport: 'Getting around', stay: 'Stays', activity: 'Activities', shopping: 'Shopping', other: 'Other' };
+const GROUP_LABEL: Record<string, string> = {
+  food: 'Food', drink: 'Drinks', transport: 'Getting around', stay: 'Stays', activity: 'Activities', shopping: 'Shopping', other: 'Other',
+  home: 'Furniture and home', services: 'Home services', utilities: 'Internet and utilities', grooming: 'Hair and grooming',
+};
 const FEEL: Record<string, { t: string; cls: string }> = {
   fair: { t: 'Felt fair', cls: 'bg-teal-soft text-teal' },
   high: { t: 'Felt high', cls: 'bg-amber-soft text-amber' },

@@ -544,3 +544,108 @@ describe('official links and business pages', () => {
     expect((await client(app).get(`/businesses/${vs}/badge.svg`)).raw.body).toContain('Not verified on Karibu');
   });
 });
+
+describe('settle in: long stays and moving home', () => {
+  it('separates visiting from settling in, and finds furniture both local and big', async () => {
+    const settle = await client(app).get('/listings?mode=settle&country=KE');
+    const cats = new Set(settle.json.results.map((l: any) => l.category));
+    expect([...cats].every((c) => ['home', 'furniture', 'home_services', 'utilities', 'grooming'].includes(c as string))).toBe(true);
+    expect(cats.has('furniture')).toBe(true);
+    const visit = await client(app).get('/listings?mode=visit&country=KE');
+    expect(visit.json.results.some((l: any) => l.category === 'furniture')).toBe(false);
+    const furniture = await client(app).get('/listings?category=furniture');
+    const scales = furniture.json.results.map((l: any) => l.subtype);
+    expect(scales).toEqual(expect.arrayContaining(['custom workshop', 'furniture store']));
+  });
+
+  it('long-stay homes and home services need documents (level 2) before going public', async () => {
+    const v = client(app);
+    await signInEmail(v, 'landlord@example.com');
+    await v.post('/vendor/businesses', { name: 'Test Lettings', countryCode: 'KE', whatsapp: '+254766000333' });
+    const nbo = (await v.get('/cities?country=KE')).json.cities.find((c: any) => c.slug === 'nairobi');
+    const r = await v.post('/vendor/listings', {
+      cityId: nbo.id, category: 'home', subtype: 'furnished apartment', title: 'Test 1-bed, Westlands', summary: 'Monthly furnished one-bedroom near the mall.',
+      lat: -1.267, lon: 36.81, priceFrom: 60000, priceUnit: 'per month', attributes: { bedrooms: 1, furnished: 'furnished', minLeaseMonths: 6 },
+      amenities: ['wifi', 'gated_compound'],
+    });
+    expect(r.status).toBe(200);
+    const id = r.json.listing.id;
+    await v.post(`/vendor/listings/${id}/submit`);
+    const admin = client(app);
+    await signInEmail(admin, 'admin@karibu.example');
+    const low = await admin.post(`/admin/listings/${id}/decision`, { decision: 'approve', level: 1 });
+    expect(low.status).toBe(400);
+    expect(low.json.error).toMatch(/level 2/);
+  });
+
+  it('accepts settling-in prices like a sofa or a month of internet', async () => {
+    const r = await client(app, { 'x-device-id': 'device-settle-1' }).post('/prices/reports', { city: 'nairobi', group: 'home', item: '3-seater sofa, made to order', amount: 45000 });
+    expect(r.status).toBe(200);
+  });
+});
+
+describe('a TripAdvisor-grade listing page', () => {
+  let slug: string;
+  let ids: string[] = [];
+  beforeAll(async () => {
+    slug = (await client(app).get('/listings?category=grooming')).json.results.find((l: any) => l.subtype === 'barber').slug;
+    const posts = [
+      { email: 'cut-1@example.com', rating: 5, travellerType: 'moving_home', body: 'Clean shop, great fade, fair price on the wall. Will be back every two weeks.' },
+      { email: 'cut-2@example.com', rating: 4, travellerType: 'long_stay', body: 'Great fade and friendly barbers, a short wait on Saturday.' },
+      { email: 'cut-3@example.com', rating: 2, travellerType: 'business', body: 'Waited an hour on Saturday, fade was rushed.' },
+    ];
+    for (const p of posts) {
+      const t = client(app);
+      await signInEmail(t, p.email);
+      const r = await t.post('/experiences', { listingSlug: slug, rating: p.rating, recommend: p.rating >= 4, travellerType: p.travellerType, body: p.body });
+      ids.push(r.json.review.id);
+    }
+  });
+
+  it('summarises ratings, traveller types, popular mentions and highlights', async () => {
+    const l = (await client(app).get(`/listings/${slug}`)).json.listing;
+    expect(l.ratingBreakdown).toMatchObject({ 5: 1, 4: 1, 2: 1 });
+    expect(l.travellerTypes.map((t: any) => t.type)).toEqual(expect.arrayContaining(['moving_home', 'long_stay', 'business']));
+    expect(l.mentions.map((m: any) => m.word)).toEqual(expect.arrayContaining(['fade', 'saturday']));
+    expect(l.highlights.length).toBe(2);
+  });
+
+  it('filters, searches and sorts experiences', async () => {
+    const two = await client(app).get(`/listings/${slug}/experiences?rating=2`);
+    expect(two.json.total).toBe(1);
+    const ls = await client(app).get(`/listings/${slug}/experiences?type=long_stay`);
+    expect(ls.json.experiences[0].travellerType).toBe('long_stay');
+    const sat = await client(app).get(`/listings/${slug}/experiences?q=saturday`);
+    expect(sat.json.total).toBe(2);
+    const low = await client(app).get(`/listings/${slug}/experiences?sort=lowest`);
+    expect(low.json.experiences[0].rating).toBe(2);
+  });
+
+  it('counts helpful votes once per person, toggling off on a second tap', async () => {
+    const g = client(app, { 'x-device-id': 'device-helpful-1' });
+    expect((await g.post(`/experiences/${ids[0]}/helpful`)).json).toEqual({ voted: true, helpful: 1 });
+    expect((await g.post(`/experiences/${ids[0]}/helpful`)).json).toEqual({ voted: false, helpful: 0 });
+    await g.post(`/experiences/${ids[0]}/helpful`);
+    const top = await client(app).get(`/listings/${slug}/experiences?sort=helpful`);
+    expect(top.json.experiences[0].id).toBe(ids[0]);
+    const author = client(app);
+    await signInEmail(author, 'cut-1@example.com');
+    expect((await author.post(`/experiences/${ids[0]}/helpful`)).status).toBe(400);
+  });
+
+  it('suggests similar places', async () => {
+    const r = await client(app).get(`/listings/${slug}/similar`);
+    expect(r.json.listings.length).toBeGreaterThan(0);
+    expect(r.json.listings.every((l: any) => l.category === 'grooming' && l.slug !== slug)).toBe(true);
+  });
+});
+
+describe('search', () => {
+  it('matches word beginnings, English stems and listing details', async () => {
+    for (const [q, title] of [['sofa', 'Made-to-order sofas'], ['fade', 'Barbershop'], ['furnished apartment', 'Furnished 2-bedroom'], ['braids', 'Natural hair'], ['movers', 'House moves']]) {
+      const r = await client(app).get(`/listings?q=${encodeURIComponent(q)}`);
+      expect(r.json.results.some((l: any) => l.title.startsWith(title)), q).toBe(true);
+    }
+    expect((await client(app).get('/listings?q=zzzqqq')).json.total).toBe(0);
+  });
+});

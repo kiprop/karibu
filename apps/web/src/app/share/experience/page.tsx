@@ -7,10 +7,13 @@ import { call } from '@/lib/client-api';
 import { useSession } from '@/components/Session';
 import { AuthForm } from '@/components/AuthForm';
 import { Icon } from '@/components/Icon';
-import { CATEGORY_SINGULAR, type Category } from '@/lib/types';
+import { CATEGORY_SINGULAR, TRAVELLER_TYPE_LABEL, isSettle, type Category } from '@/lib/types';
 
 type L = { id: string; slug: string; title: string; city: string; vendorName: string; category: Category; currency: string; priceUnit: string };
-const GROUP_FOR: Record<Category, string> = { stay: 'stay', safari: 'activity', transport: 'transport', guide: 'activity', experience: 'activity', event: 'activity' };
+const GROUP_FOR: Record<Category, string> = {
+  stay: 'stay', safari: 'activity', transport: 'transport', guide: 'activity', experience: 'activity', event: 'activity',
+  home: 'home', furniture: 'home', home_services: 'services', utilities: 'utilities', grooming: 'grooming',
+};
 const today = () => new Date().toISOString().slice(0, 10);
 const STAR_WORDS = ['', 'Poor', 'Not great', 'OK', 'Good', 'Excellent'];
 
@@ -24,6 +27,7 @@ function ShareExperience() {
   const [rating, setRating] = useState(0);
   const [recommend, setRecommend] = useState<boolean | null>(null);
   const [visitedOn, setVisitedOn] = useState(today());
+  const [travellerType, setTravellerType] = useState('');
   const [body, setBody] = useState('');
   const [paidItem, setPaidItem] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
@@ -49,7 +53,7 @@ function ShareExperience() {
     try {
       const r = await call<{ contacted: boolean; updated: boolean }>('/experiences', {
         body: {
-          listingSlug: slug, rating, recommend: recommend ?? undefined, body: body || undefined, visitedOn, refCode: ref,
+          listingSlug: slug, rating, recommend: recommend ?? undefined, travellerType: travellerType || undefined, body: body || undefined, visitedOn, refCode: ref,
           price: paidAmount ? { group: GROUP_FOR[l!.category], item: paidItem, amount: Number(paidAmount), unit: paidUnit || undefined, feel: feel || undefined } : undefined,
         },
       });
@@ -137,8 +141,19 @@ function ShareExperience() {
         </div>
       </fieldset>
 
+      <fieldset>
+        <legend className="label mb-2">Who were you? (helps people like you find your experience)</legend>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(TRAVELLER_TYPE_LABEL).map(([k, t]) => (
+            <label key={k} className={`pill cursor-pointer ${travellerType === k ? 'pill-on' : ''}`}>
+              <input type="radio" name="tt" className="sr-only" checked={travellerType === k} onChange={() => setTravellerType(travellerType === k ? '' : k)} />{t}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <div>
-        <label className="label" htmlFor="vd">When did you go?</label>
+        <label className="label" htmlFor="vd">{isSettle(l.category) ? 'When did you use them?' : 'When did you go?'}</label>
         <input id="vd" type="date" max={today()} className="input" value={visitedOn} onChange={(e) => setVisitedOn(e.target.value)} />
       </div>
 

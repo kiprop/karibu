@@ -51,5 +51,11 @@ h1, h2, h3 { text-wrap: balance; }
 .media-guide { background: linear-gradient(135deg, #FF5E8A, #FFB347); }
 .media-experience { background: linear-gradient(135deg, #1FA3D6, #8B5CF6); }
 .media-event { background: linear-gradient(135deg, #7B5CFF, #D24BB4); }
+/* Settle in: warmer, homelier tones anchored on the Enkop charcoal and amber. */
+.media-home { background: linear-gradient(135deg, #14181D, #3A4A5C); }
+.media-furniture { background: linear-gradient(135deg, #B4692B, #F0A83C); }
+.media-home_services { background: linear-gradient(135deg, #2F6E5B, #14181D); }
+.media-utilities { background: linear-gradient(135deg, #1F6FD6, #14181D); }
+.media-grooming { background: linear-gradient(135deg, #C2417A, #F0A83C); }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

@@ -9,7 +9,7 @@ import { HttpError, badRequest, notFound } from '../lib/util.js';
  * the team's checked prices and what other travellers paid. Closes the "mzungu price" gap.
  */
 
-export const PRICE_GROUPS = ['food', 'drink', 'transport', 'stay', 'activity', 'shopping', 'other'] as const;
+export const PRICE_GROUPS = ['food', 'drink', 'transport', 'stay', 'activity', 'shopping', 'other', 'home', 'services', 'utilities', 'grooming'] as const;
 export const CURRENCIES = ['KES', 'TZS', 'UGX', 'RWF', 'ETB', 'USD'] as const;
 /** Community ranges count as "typical" only from this many non-rip-off reports; fewer are "early reports". */
 export const MIN_REPORTS = 3;

@@ -3,6 +3,7 @@ import { api } from '@/lib/server-api';
 import type { ListingCard as L } from '@/lib/types';
 import { ListingCard } from '@/components/ListingCard';
 import { CATEGORY_ICON, Icon } from '@/components/Icon';
+import { HeroSearch } from '@/components/HeroSearch';
 
 type Country = { code: string; name: string; isLive: boolean; launchWave: number };
 
@@ -13,6 +14,14 @@ const CATS = [
   { key: 'guide', label: 'Local guides', cls: 'media-guide' },
   { key: 'experience', label: 'Experiences', cls: 'media-experience' },
   { key: 'event', label: 'Events', cls: 'media-event' },
+];
+
+const SETTLE = [
+  { key: 'home', label: 'Long-stay homes', body: 'Monthly rentals, viewed before you pay', cls: 'media-home' },
+  { key: 'furniture', label: 'Furniture & home', body: 'Local workshops to big stores', cls: 'media-furniture' },
+  { key: 'home_services', label: 'Home services', body: 'Movers, cleaners, plumbers, security', cls: 'media-home_services' },
+  { key: 'utilities', label: 'Internet & utilities', body: 'Fibre, power, water, gas', cls: 'media-utilities' },
+  { key: 'grooming', label: 'Hair & grooming', body: 'Barbers, natural hair, salons', cls: 'media-grooming' },
 ];
 
 function Row({ title, href, items }: { title: string; href: string; items: L[] }) {
@@ -33,11 +42,12 @@ function Row({ title, href, items }: { title: string; href: string; items: L[] }
 }
 
 export default async function Home() {
-  const [{ countries }, safaris, stays, rated] = await Promise.all([
+  const [{ countries }, safaris, stays, rated, settle] = await Promise.all([
     api<{ countries: Country[] }>('/countries'),
     api<{ results: L[] }>('/listings?category=safari&pageSize=10'),
     api<{ results: L[] }>('/listings?category=stay&budget=mid&pageSize=10'),
     api<{ results: L[] }>('/listings?sort=rating&pageSize=10'),
+    api<{ results: L[] }>('/listings?mode=settle&pageSize=10'),
   ]);
 
   return (
@@ -46,17 +56,13 @@ export default async function Home() {
         <div className="container-k pb-10 pt-12 sm:pt-16">
           <p className="eyebrow text-brand">{countries.map((c) => c.name).join(' · ')}</p>
           <h1 className="mt-3 max-w-3xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
-            Travel East Africa without the guesswork.
+            East Africa without the guesswork.
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-muted">
-            Stays, game drives, drivers and guides checked by our team. Compare honestly, then message them directly on WhatsApp.
+            Here for a week or for good? Stays, game drives and drivers, plus homes, furniture and home services, all checked by our team.
+            Compare honestly, see what people really paid, then message them directly.
           </p>
-          <form action="/explore" className="mt-6 flex max-w-2xl items-center gap-2 rounded-full border-2 border-ink bg-panel p-1.5 pl-5 shadow-sm">
-            <Icon name="search" className="text-muted" />
-            <label htmlFor="hero-q" className="sr-only">Search</label>
-            <input id="hero-q" name="q" placeholder="Mara game drive, Naivasha camp, airport transfer…" className="min-w-0 flex-1 bg-transparent py-2 text-[16px] outline-none placeholder:text-muted" />
-            <button className="btn-primary" type="submit">Search</button>
-          </form>
+          <HeroSearch />
           <div className="mt-5 flex flex-wrap gap-2" aria-label="Destinations">
             {countries.map((c) =>
               c.isLive ? (
@@ -85,6 +91,26 @@ export default async function Home() {
       </section>
 
       <Row title="Game drives and safaris" href="/explore?category=safari" items={safaris.results} />
+
+      <section className="container-k mt-14" aria-labelledby="settle-h">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="eyebrow">Staying longer or moving home?</p>
+            <h2 id="settle-h" className="mt-1 font-display text-3xl font-extrabold">Settle in</h2>
+            <p className="mt-1 max-w-2xl text-muted">For returning diaspora, remote workers and long stays: a home, furniture, people you can let into it, and a good barber.</p>
+          </div>
+          <Link href="/settle" className="font-bold text-brand">Moving home guide</Link>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {SETTLE.map((c) => (
+            <Link key={c.key} href={`/explore?category=${c.key}`} className={`flex min-h-[140px] flex-col justify-between rounded-[20px] p-4 text-white ${c.cls}`}>
+              <Icon name={CATEGORY_ICON[c.key]} size={28} />
+              <span><strong className="block font-display text-lg leading-tight">{c.label}</strong><span className="text-[13px] opacity-90">{c.body}</span></span>
+            </Link>
+          ))}
+        </div>
+      </section>
+      <Row title="Popular for settling in" href="/explore?mode=settle" items={settle.results} />
       <Row title="Mid-range stays with hot water that works" href="/explore?category=stay&budget=mid" items={stays.results} />
 
       <section className="container-k mt-12 grid gap-4 md:grid-cols-3">

@@ -6,7 +6,7 @@ import { requireRole, requireUser } from '../auth.js';
 import { syncVendorContacts } from './auth.js';
 import { outbox } from '../lib/notify.js';
 import { isCompanyEmail, sha256 } from '../lib/util.js';
-import { CATEGORIES, type Category, isValidSubtype, validateAttributes, AMENITIES } from '../lib/categories.js';
+import { CATEGORIES, PRICE_UNITS, type Category, isValidSubtype, validateAttributes, AMENITIES } from '../lib/categories.js';
 import { savePrivateFile } from '../lib/storage.js';
 import { startCheckout, verifyWebhook } from '../lib/payments.js';
 import { HttpError, badRequest, forbidden, notFound, slugify, randomToken } from '../lib/util.js';
@@ -41,7 +41,7 @@ const listingInput = z.object({
   budgetTier: z.enum(['budget', 'mid', 'premium']).optional(),
   priceFrom: z.number().int().min(0).optional(),
   priceTo: z.number().int().min(0).optional(),
-  priceUnit: z.enum(['per night', 'per person', 'per vehicle per day', 'per seat', 'per group', 'per ticket']).default('per person'),
+  priceUnit: z.enum(PRICE_UNITS).default('per person'),
   attributes: z.record(z.string(), z.unknown()).default({}),
   amenities: z.array(z.enum(AMENITIES)).max(30).default([]),
   photos: z.array(z.object({ url: z.string().url().max(500), alt: z.string().max(160).default('') })).max(20).default([]),

@@ -1,8 +1,23 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { q } from '../db/pool.js';
-import { AMENITIES, CATEGORIES, SUBTYPES } from '../lib/categories.js';
+import { AMENITIES, CATEGORIES, SETTLE_CATEGORIES, SUBTYPES, VISIT_CATEGORIES } from '../lib/categories.js';
 import { HttpError, badRequest, notFound, whatsappUrl } from '../lib/util.js';
+
+export const TRAVELLER_TYPES = ['solo', 'couple', 'family', 'friends', 'business', 'long_stay', 'moving_home'] as const;
+
+/** One experience as shown publicly. $1 is the listing id; the voter key (for "you found this helpful") is passed separately. */
+const EXPERIENCE_FIELDS = `
+  r.id, r.rating, r.body, r.vendor_reply AS "vendorReply", r.created_at AS "createdAt",
+  coalesce(split_part(u.display_name, ' ', 1), 'Traveller') AS author,
+  r.recommend, r.visited_on AS "visitedOn", (r.enquiry_id IS NOT NULL) AS contacted, r.traveller_type AS "travellerType",
+  (SELECT count(*)::int FROM review_votes v WHERE v.review_id = r.id) AS helpful,
+  CASE WHEN p.id IS NOT NULL AND NOT p.is_hidden THEN json_build_object('item', p.item, 'amount', p.amount, 'currency', p.currency, 'unit', p.unit, 'feel', p.feel) END AS paid`;
+const EXPERIENCE_FROM = `FROM reviews r LEFT JOIN users u ON u.id = r.user_id LEFT JOIN price_reports p ON p.id = r.price_report_id`;
+
+// Words too common to be a useful "popular mention".
+const STOPWORDS = new Set(('the and was were with that this they them their there have had has for from very also just but not are you your our ours its into then than too out about would could will what when which who how all any some more most much many really well even only over after before again here what were been being being able good great nice place time back again went come came made make take took get got lot lots day days one two three four five'
+  ).split(' '));
 
 const CARD_FIELDS = `
   pl.id, pl.slug, pl.title, pl.summary, pl.category, pl.subtype, pl.budget_tier AS "budgetTier",
@@ -19,6 +34,8 @@ const searchQuery = z.object({
   country: z.string().length(2).toUpperCase().optional(),
   city: z.string().max(80).optional(),
   category: z.enum(CATEGORIES as [string, ...string[]]).optional(),
+  /** visit = short-trip categories, settle = long stays and moving home. */
+  mode: z.enum(['visit', 'settle']).optional(),
   subtype: z.string().max(60).optional(),
   budget: z.enum(['budget', 'mid', 'premium']).optional(),
   minLevel: z.coerce.number().int().min(1).max(3).optional(),
@@ -39,7 +56,7 @@ export async function publicRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.get('/meta', async () => ({ categories: SUBTYPES, amenities: AMENITIES }));
+  app.get('/meta', async () => ({ categories: SUBTYPES, amenities: AMENITIES, groups: { visit: VISIT_CATEGORIES, settle: SETTLE_CATEGORIES } }));
 
   app.get('/countries', async () => {
     const { rows } = await q(
@@ -72,6 +89,7 @@ export async function publicRoutes(app: FastifyInstance) {
     if (f.country) where.push(`pl.country_code = ${p(f.country)}`);
     if (f.city) where.push(`pl.city_slug = ${p(f.city)}`);
     if (f.category) where.push(`pl.category = ${p(f.category)}::listing_category`);
+    else if (f.mode) where.push(`pl.category = ANY(${p(f.mode === 'settle' ? [...SETTLE_CATEGORIES] : [...VISIT_CATEGORIES])}::listing_category[])`);
     if (f.subtype) where.push(`pl.subtype = ${p(f.subtype)}`);
     if (f.budget) where.push(`pl.budget_tier = ${p(f.budget)}::budget_tier`);
     if (f.ids) {
@@ -86,9 +104,17 @@ export async function publicRoutes(app: FastifyInstance) {
       if (list.length) where.push(`pl.amenities @> ${p(list)}::text[]`);
     }
     let tsq = '';
+    let match = '';
     if (f.q) {
       tsq = p(f.q);
-      where.push(`(pl.search_doc @@ websearch_to_tsquery('simple', unaccent(${tsq})) OR pl.title % ${tsq} OR pl.city_name ILIKE '%' || ${tsq} || '%')`);
+      // Every word must match, as a prefix ("sofa" finds "sofas") or by English stem ("furnished" finds "furnish").
+      const words = (f.q.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().match(/[a-z0-9]+/g) ?? []).slice(0, 8);
+      const prefix = words.length ? p(words.map((w) => `${w}:*`).join(' & ')) : null;
+      match = prefix
+        ? `(to_tsquery('simple', ${prefix}) || websearch_to_tsquery('english', unaccent(${tsq})))`
+        : `websearch_to_tsquery('simple', unaccent(${tsq}))`;
+      where.push(`(pl.search_doc @@ ${prefix ? `to_tsquery('simple', ${prefix})` : match} OR pl.search_doc @@ websearch_to_tsquery('english', unaccent(${tsq}))
+                  OR pl.title % ${tsq} OR pl.city_name ILIKE '%' || ${tsq} || '%')`);
     }
     let dist = 'NULL::float';
     if (f.lat !== undefined && f.lon !== undefined) {
@@ -99,7 +125,7 @@ export async function publicRoutes(app: FastifyInstance) {
       throw badRequest('Distance sort needs lat and lon');
     }
     const relevance = tsq
-      ? `ts_rank(pl.search_doc, websearch_to_tsquery('simple', unaccent(${tsq}))) * 2 + similarity(pl.title, ${tsq})`
+      ? `ts_rank(pl.search_doc, ${match}) * 2 + similarity(pl.title, ${tsq})`
       : '0';
     // Organic score: relevance, verification, freshness and rating. Payment never changes organic order.
     const score = `(${relevance}) + pl.verification_level * 0.3
@@ -156,12 +182,8 @@ export async function publicRoutes(app: FastifyInstance) {
         [l.id],
       ),
       q(
-        `SELECT r.id, r.rating, r.body, r.vendor_reply AS "vendorReply", r.created_at AS "createdAt",
-                coalesce(split_part(u.display_name, ' ', 1), 'Traveller') AS author,
-                r.recommend, r.visited_on AS "visitedOn", (r.enquiry_id IS NOT NULL) AS contacted,
-                CASE WHEN p.id IS NOT NULL AND NOT p.is_hidden THEN json_build_object('item', p.item, 'amount', p.amount, 'currency', p.currency, 'unit', p.unit, 'feel', p.feel) END AS paid
-           FROM reviews r LEFT JOIN users u ON u.id = r.user_id LEFT JOIN price_reports p ON p.id = r.price_report_id
-          WHERE r.listing_id = $1 AND r.status = 'published' ORDER BY r.created_at DESC LIMIT 20`,
+        `SELECT ${EXPERIENCE_FIELDS} ${EXPERIENCE_FROM}
+          WHERE r.listing_id = $1 AND r.status = 'published' ORDER BY r.created_at DESC LIMIT 10`,
         [l.id],
       ),
       // "I paid this much" reports at this business, for the most-reported currency.
@@ -174,7 +196,91 @@ export async function publicRoutes(app: FastifyInstance) {
         [l.id],
       ),
     ]);
-    return { listing: { ...l, photos: photos.rows, dates: dates.rows, reviews: reviews.rows, paid: paid.rows[0] ?? null } };
+    const [breakdown, types, words, highlights] = await Promise.all([
+      q(`SELECT rating, count(*)::int AS n FROM reviews WHERE listing_id = $1 AND status = 'published' GROUP BY rating`, [l.id]),
+      q(`SELECT traveller_type AS type, count(*)::int AS n FROM reviews WHERE listing_id = $1 AND status = 'published' AND traveller_type IS NOT NULL GROUP BY traveller_type ORDER BY n DESC`, [l.id]),
+      q(
+        `SELECT w, count(DISTINCT r.id)::int AS n
+           FROM reviews r, regexp_split_to_table(lower(coalesce(r.body, '')), '[^a-z]+') AS w
+          WHERE r.listing_id = $1 AND r.status = 'published' AND length(w) >= 4
+          GROUP BY w HAVING count(DISTINCT r.id) >= 2 ORDER BY n DESC, w LIMIT 30`,
+        [l.id],
+      ),
+      // "Why travellers like it": the two most recent warm experiences with something to say.
+      q(
+        `SELECT r.id, r.body, coalesce(split_part(u.display_name, ' ', 1), 'Traveller') AS author
+           FROM reviews r LEFT JOIN users u ON u.id = r.user_id
+          WHERE r.listing_id = $1 AND r.status = 'published' AND r.rating >= 4 AND length(coalesce(r.body, '')) >= 40
+          ORDER BY r.created_at DESC LIMIT 2`,
+        [l.id],
+      ),
+    ]);
+    const ratingBreakdown: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    for (const r of breakdown.rows) ratingBreakdown[r.rating] = r.n;
+    const mentions = words.rows.filter((r: any) => !STOPWORDS.has(r.w)).slice(0, 8).map((r: any) => ({ word: r.w, count: r.n }));
+    return {
+      listing: {
+        ...l, photos: photos.rows, dates: dates.rows, reviews: reviews.rows, paid: paid.rows[0] ?? null,
+        ratingBreakdown, travellerTypes: types.rows, mentions, highlights: highlights.rows,
+      },
+    };
+  });
+
+  // ---- Experiences for one listing: filter by stars, traveller type and words; sort; page ----
+  app.get('/listings/:slug/experiences', async (req) => {
+    const { slug } = z.object({ slug: z.string().max(120) }).parse(req.params);
+    const f = z
+      .object({
+        rating: z.coerce.number().int().min(1).max(5).optional(),
+        type: z.enum(TRAVELLER_TYPES).optional(),
+        q: z.string().trim().min(2).max(60).optional(),
+        sort: z.enum(['recent', 'highest', 'lowest', 'helpful']).default('recent'),
+        page: z.coerce.number().int().min(1).max(500).default(1),
+      })
+      .parse(req.query);
+    const l = await q<{ id: string }>(`SELECT id FROM public_listings WHERE slug = $1`, [slug]);
+    if (!l.rows[0]) throw notFound('This listing is not available');
+    const params: unknown[] = [l.rows[0].id];
+    const where = [`r.listing_id = $1`, `r.status = 'published'`];
+    if (f.rating) { params.push(f.rating); where.push(`r.rating = $${params.length}`); }
+    if (f.type) { params.push(f.type); where.push(`r.traveller_type = $${params.length}`); }
+    if (f.q) { params.push(`%${f.q.replace(/[%_\\]/g, (m) => '\\' + m)}%`); where.push(`r.body ILIKE $${params.length}`); }
+    const order = { recent: 'r.created_at DESC', highest: 'r.rating DESC, r.created_at DESC', lowest: 'r.rating ASC, r.created_at DESC', helpful: 'helpful DESC, r.created_at DESC' }[f.sort];
+    const pageSize = 10;
+    const [rows, total] = await Promise.all([
+      q(`SELECT ${EXPERIENCE_FIELDS} ${EXPERIENCE_FROM} WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ${pageSize} OFFSET ${(f.page - 1) * pageSize}`, params),
+      q(`SELECT count(*)::int AS n FROM reviews r WHERE ${where.join(' AND ')}`, params),
+    ]);
+    return { total: total.rows[0].n, page: f.page, pageSize, experiences: rows.rows };
+  });
+
+  // "Was this helpful?" Anyone can vote once (signed in or by device); voting again removes the vote.
+  app.post('/experiences/:id/helpful', { config: { rateLimit: { max: 60, timeWindow: '10 minutes' } } }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const voter = req.user ? `u:${req.user.id}` : req.deviceId ? `d:${req.deviceId}` : null;
+    if (!voter) throw badRequest('Missing device id');
+    const own = await q(`SELECT 1 FROM reviews WHERE id = $1 AND user_id IS NOT DISTINCT FROM $2`, [id, req.user?.id ?? '00000000-0000-0000-0000-000000000000']);
+    if (own.rows[0]) throw badRequest('You can’t vote on your own experience');
+    const exists = await q(`SELECT 1 FROM reviews WHERE id = $1 AND status = 'published'`, [id]);
+    if (!exists.rows[0]) throw notFound();
+    const del = await q(`DELETE FROM review_votes WHERE review_id = $1 AND voter = $2`, [id, voter]);
+    if (!del.rowCount) await q(`INSERT INTO review_votes (review_id, voter) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [id, voter]);
+    const n = await q<{ n: number }>(`SELECT count(*)::int AS n FROM review_votes WHERE review_id = $1`, [id]);
+    return { voted: !del.rowCount, helpful: n.rows[0].n };
+  });
+
+  // ---- "You might also like": same category nearby, best rated first ----
+  app.get('/listings/:slug/similar', async (req) => {
+    const { slug } = z.object({ slug: z.string().max(120) }).parse(req.params);
+    const l = await q(`SELECT id, category, city_id, location FROM public_listings WHERE slug = $1`, [slug]);
+    if (!l.rows[0]) throw notFound();
+    const { rows } = await q(
+      `SELECT ${CARD_FIELDS} FROM public_listings pl LEFT JOIN listing_ratings r ON r.listing_id = pl.id
+        WHERE pl.id <> $1 AND pl.category = $2
+        ORDER BY (pl.city_id = $3) DESC, coalesce(r.rating, 0) DESC, ST_Distance(pl.location, $4) LIMIT 6`,
+      [l.rows[0].id, l.rows[0].category, l.rows[0].city_id, l.rows[0].location],
+    );
+    return { listings: rows.map((r: any) => ({ ...r, rating: (r.reviewCount ?? 0) >= 3 ? r.rating : null })) };
   });
 
   // ---- Enquiries: record first, then hand the traveller to WhatsApp ----

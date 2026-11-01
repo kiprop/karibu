@@ -1,4 +1,6 @@
-# Karibu
+# EI Karibu
+
+**Branding:** the Enkop Intelligence mark lives in one file, `apps/web/public/brand/ei-mark.svg` (currently a placeholder "EI" in the Enkop Beacon colours). Replace it with the real logo, SVG or PNG at any aspect ratio, and it updates the header, footer and app icon.
 
 Verified travel information for East Africa. Travellers find stays, game drives, transport, guides, experiences and events, check that a business is real, and message it directly on WhatsApp. Karibu never handles payments between travellers and businesses. Businesses can pay Karibu a subscription for more listings and labelled visibility, but verification is free and can't be bought.
 
@@ -14,6 +16,12 @@ An Enkop Intelligence venture. Product spec: the Karibu PRD v1.0 (Claude doc).
 - **Share your experience** (/share): signed-in travellers rate a business with stars, recommend yes or no, what they paid and what happened. Experiences from a Karibu enquiry are marked "Contacted via Karibu". Shown on listing pages, business pages (/b/&lt;slug&gt;) and a feed; reviewers moderate at /admin/experiences.
 - **Fair prices and "I paid this much"**: anyone (no account needed) can report what they paid for a meal, ride, tour or souvenir, in a city or at a listed business. The price board shows team-checked prices next to traveller ranges, and "Is this price fair?" compares any quote with both, so visitors know the going rate before they're quoted a "mzungu price". Reports flagged as rip-offs are kept out of the typical range; reviewers can hide outliers at /admin/prices.
 - Signed in (email magic link, or Google): favourites, trip planner by day with a route map and share link, enquiry history, reviews tied to a real enquiry, recommendations. Guest favourites and enquiries merge into the account on sign-in.
+
+**Settle in (long stays and moving home)**
+- For returning diaspora, remote workers and long stays: long-stay homes, furniture and home goods (local workshops to big stores, new and second-hand), home services (movers, cleaners, plumbers, electricians, security), internet and utilities, and hair and grooming.
+- "Visiting" and "Staying long or moving home" modes in search and Explore, a Settle in section on the home page and a moving-home guide at /settle. Long-stay homes and home services need document checks (level 2) before they appear.
+
+**Listing pages** follow the best review sites: breadcrumbs, a photo mosaic with a full-screen viewer, rating summary with "% recommend", "Why people like it" highlights, a sticky section menu, a rating breakdown you can click to filter, filters by who went (solo, family, long stay, moving home and more), popular mentions, search within experiences, sorting, "Helpful" votes, an "About the business" card and "You might also like". Search matches word beginnings and English stems ("sofa" finds sofas) across listing details.
 
 **Businesses**
 - Phone sign-in by SMS code, business profile, listings for each category with a review workflow, private document upload, monthly "still accurate" confirmation, enquiry stats with CSV export, review replies.

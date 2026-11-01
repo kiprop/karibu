@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { api } from '@/lib/server-api';
-import { AMENITY_LABEL, CATEGORY_LABEL, type Category, type ListingCard as L } from '@/lib/types';
+import { AMENITY_LABEL, CATEGORY_LABEL, SETTLE_CATEGORIES, VISIT_CATEGORIES, isSettle, type Category, type ListingCard as L } from '@/lib/types';
 import { ListingCard } from '@/components/ListingCard';
 import { Empty } from '@/components/bits';
 import { ExploreMap } from './ExploreMap';
@@ -13,6 +13,9 @@ const AMENITY_FILTERS: Record<string, string[]> = {
   stay: ['hot_water', 'wifi', 'power_backup', 'pool', 'family_rooms', 'breakfast'],
   safari: ['pop_top_roof', 'window_seats', 'park_fees_included', 'vehicle_charging'],
   transport: ['airport_pickup'],
+  home: ['wifi', 'backup_water', 'power_backup', 'gated_compound', 'pet_friendly', 'parking'],
+  furniture: ['delivery', 'installation', 'card_payment'],
+  grooming: ['walk_ins', 'home_visits', 'card_payment'],
 };
 
 function qs(base: SP, patch: SP) {
@@ -31,7 +34,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
   if (picked.length) sp.amenities = picked.join(',');
   const view = sp.view === 'map' ? 'map' : 'list';
   const params = new URLSearchParams();
-  for (const k of ['q', 'country', 'city', 'category', 'subtype', 'budget', 'minLevel', 'priceMax', 'amenities', 'sort', 'page']) if (sp[k]) params.set(k, sp[k]!);
+  for (const k of ['q', 'country', 'city', 'category', 'mode', 'subtype', 'budget', 'minLevel', 'priceMax', 'amenities', 'sort', 'page']) if (sp[k]) params.set(k, sp[k]!);
   params.set('pageSize', view === 'map' ? '50' : '24');
   const [data, meta, cities] = await Promise.all([
     api<{ total: number; page: number; pageSize: number; featured: L[]; results: L[] }>(`/listings?${params}`),
@@ -39,6 +42,9 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
     api<{ cities: { slug: string; name: string; isLive: boolean; listingCount: number }[] }>('/cities?country=KE'),
   ]);
   const cat = sp.category as Category | undefined;
+  // Visiting (short trips) or Settling in (long stays, moving home). A chosen category decides it.
+  const mode: 'visit' | 'settle' = cat ? (isSettle(cat) ? 'settle' : 'visit') : sp.mode === 'settle' ? 'settle' : 'visit';
+  const modeCats = mode === 'settle' ? SETTLE_CATEGORIES : VISIT_CATEGORIES;
   const amen = new Set((sp.amenities ?? '').split(',').filter(Boolean));
   const page = data.page;
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
@@ -46,13 +52,19 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
 
   return (
     <div className="container-k py-8">
-      <h1 className="font-display text-3xl font-extrabold">{cat ? CATEGORY_LABEL[cat] : sp.q ? `Results for “${sp.q}”` : 'Explore East Africa'}</h1>
+      <div role="tablist" aria-label="What are you planning?" className="mb-5 inline-flex rounded-full bg-soft p-1 text-[14px] font-bold">
+        {([['visit', 'Visiting'], ['settle', 'Staying long or moving home']] as const).map(([m, t]) => (
+          <Link key={m} role="tab" aria-selected={mode === m} href={qs({ ...sp, category: undefined, subtype: undefined, amenities: undefined }, { mode: m === 'settle' ? 'settle' : undefined })}
+            className={`rounded-full px-4 py-2 ${mode === m ? 'bg-panel shadow-sm' : 'text-muted'}`}>{t}</Link>
+        ))}
+      </div>
+      <h1 className="font-display text-3xl font-extrabold">{cat ? CATEGORY_LABEL[cat] : sp.q ? `Results for “${sp.q}”` : mode === 'settle' ? 'Settle in' : 'Explore East Africa'}</h1>
       <p className="mt-1 text-muted">Every listing here was checked by our team before it appeared. {data.total} found.</p>
 
       <nav aria-label="Categories" className="mt-5 flex gap-2 overflow-x-auto pb-1">
-        <Link href={qs(sp, { category: undefined, subtype: undefined, amenities: undefined })} className={`pill ${!cat ? 'pill-on' : ''}`}>All</Link>
-        {(Object.keys(CATEGORY_LABEL) as Category[]).map((c) => (
-          <Link key={c} href={qs(sp, { category: c, subtype: undefined, amenities: undefined })} className={`pill ${cat === c ? 'pill-on' : ''}`} aria-current={cat === c ? 'page' : undefined}>
+        <Link href={qs(sp, { category: undefined, subtype: undefined, amenities: undefined, mode: mode === 'settle' ? 'settle' : undefined })} className={`pill ${!cat ? 'pill-on' : ''}`}>All</Link>
+        {modeCats.map((c) => (
+          <Link key={c} href={qs(sp, { category: c, subtype: undefined, amenities: undefined, mode: undefined })} className={`pill ${cat === c ? 'pill-on' : ''}`} aria-current={cat === c ? 'page' : undefined}>
             {CATEGORY_LABEL[c]}
           </Link>
         ))}
@@ -61,6 +73,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
       <div className="mt-6 grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
         <form action="/explore" className="card flex h-fit flex-col gap-4 p-4" aria-label="Filters">
           {cat ? <input type="hidden" name="category" value={cat} /> : null}
+          {!cat && mode === 'settle' ? <input type="hidden" name="mode" value="settle" /> : null}
           <input type="hidden" name="view" value={view} />
           <div className="flex flex-col gap-1.5">
             <label htmlFor="f-q" className="label">Search</label>

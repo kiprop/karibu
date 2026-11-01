@@ -15,9 +15,14 @@ const AMENITIES_BY_CAT: Record<Category, string[]> = {
   guide: ['family_friendly', 'wheelchair_access'],
   experience: ['family_friendly', 'meals_included', 'wheelchair_access'],
   event: ['family_friendly', 'wheelchair_access'],
+  home: ['wifi', 'power_backup', 'backup_water', 'hot_water', 'gated_compound', 'parking', 'pet_friendly', 'pool', 'wheelchair_access'],
+  furniture: ['delivery', 'installation', 'card_payment', 'mpesa'],
+  home_services: ['card_payment', 'mpesa'],
+  utilities: ['installation', 'card_payment', 'mpesa'],
+  grooming: ['walk_ins', 'home_visits', 'card_payment', 'mpesa', 'wheelchair_access'],
 };
-const UNITS = ['per night', 'per person', 'per vehicle per day', 'per seat', 'per group', 'per ticket'];
-const DEFAULT_UNIT: Record<Category, string> = { stay: 'per night', safari: 'per vehicle per day', transport: 'per group', guide: 'per person', experience: 'per person', event: 'per ticket' };
+const UNITS = ['per night', 'per person', 'per vehicle per day', 'per seat', 'per group', 'per ticket', 'per month', 'per item', 'per visit', 'per hour', 'per job', 'per service'];
+const DEFAULT_UNIT: Record<Category, string> = { stay: 'per night', safari: 'per vehicle per day', transport: 'per group', guide: 'per person', experience: 'per person', event: 'per ticket', home: 'per month', furniture: 'per item', home_services: 'per job', utilities: 'per month', grooming: 'per service' };
 
 export type ListingValues = {
   cityId?: number; category: Category; subtype: string; title: string; summary: string; description?: string;
@@ -94,7 +99,7 @@ export function ListingForm({ id, initial }: { id?: string; initial?: ListingVal
       <fieldset className="card flex flex-col gap-3 p-5">
         <legend className="px-1 text-lg font-extrabold">What are you listing?</legend>
         <div className="flex flex-wrap gap-2">
-          {(Object.keys(meta.categories) as Category[]).map((c) => (
+          {(Object.keys(meta.categories) as Category[]).map((c, i) => (
             <label key={c} className={`pill cursor-pointer ${cat === c ? 'pill-on' : ''}`}>
               <input type="radio" name="cat" className="sr-only" checked={cat === c} onChange={() => setCategory(c)} />
               {CATEGORY_SINGULAR[c]}
@@ -160,6 +165,59 @@ export function ListingForm({ id, initial }: { id?: string; initial?: ListingVal
           </div>
         ) : null}
         {cat === 'event' ? <div><label className="label" htmlFor="ve">Venue</label><input id="ve" className="input" value={a.venue ?? ''} onChange={(e) => setA('venue', e.target.value)} /></div> : null}
+        {cat === 'home' ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><label className="label" htmlFor="hb">Bedrooms</label><input id="hb" type="number" min={0} className="input" value={a.bedrooms ?? ''} onChange={(e) => setA('bedrooms', num(e.target.value))} /></div>
+            <div><label className="label" htmlFor="hba">Bathrooms</label><input id="hba" type="number" min={0} className="input" value={a.bathrooms ?? ''} onChange={(e) => setA('bathrooms', num(e.target.value))} /></div>
+            <div><label className="label" htmlFor="hf">Furnishing</label><select id="hf" className="input" value={a.furnished ?? ''} onChange={(e) => setA('furnished', e.target.value)}><option value="">Choose</option><option value="furnished">Furnished</option><option value="semi">Partly furnished</option><option value="unfurnished">Unfurnished</option></select></div>
+            <div><label className="label" htmlFor="hn">Neighbourhood</label><input id="hn" className="input" value={a.neighbourhood ?? ''} onChange={(e) => setA('neighbourhood', e.target.value)} /></div>
+            <div><label className="label" htmlFor="hl">Minimum lease (months)</label><input id="hl" type="number" min={1} className="input" value={a.minLeaseMonths ?? ''} onChange={(e) => setA('minLeaseMonths', num(e.target.value))} /></div>
+            <div><label className="label" htmlFor="hd">Deposit (months of rent)</label><input id="hd" type="number" min={0} step={0.5} className="input" value={a.depositMonths ?? ''} onChange={(e) => setA('depositMonths', num(e.target.value))} /></div>
+            <div><label className="label" htmlFor="haf">Available from</label><input id="haf" type="date" className="input" value={a.availableFrom ?? ''} onChange={(e) => setA('availableFrom', e.target.value)} /></div>
+            <label className="flex items-center gap-2 self-end text-[15px]"><input type="checkbox" className="h-5 w-5" checked={!!a.utilitiesIncluded} onChange={(e) => setA('utilitiesIncluded', e.target.checked || undefined)} />Utilities included in rent</label>
+          </div>
+        ) : null}
+        {cat === 'furniture' ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><label className="label" htmlFor="fs">You sell</label><select id="fs" className="input" value={a.sells ?? ''} onChange={(e) => setA('sells', e.target.value)}><option value="">Choose</option><option value="new">New</option><option value="used">Second-hand</option><option value="both">Both</option></select></div>
+            <div><label className="label" htmlFor="fsc">Size of business</label><select id="fsc" className="input" value={a.scale ?? ''} onChange={(e) => setA('scale', e.target.value)}><option value="">Choose</option><option value="workshop">Workshop or fundi</option><option value="shop">Shop</option><option value="chain">Store chain</option></select></div>
+            <div><label className="label" htmlFor="flt">Typical lead time (days)</label><input id="flt" type="number" min={0} className="input" value={a.leadTimeDays ?? ''} onChange={(e) => setA('leadTimeDays', num(e.target.value))} /></div>
+            <div><label className="label" htmlFor="fw">Warranty (months)</label><input id="fw" type="number" min={0} className="input" value={a.warrantyMonths ?? ''} onChange={(e) => setA('warrantyMonths', num(e.target.value))} /></div>
+            <label className="flex items-center gap-2 text-[15px]"><input type="checkbox" className="h-5 w-5" checked={!!a.madeToOrder} onChange={(e) => setA('madeToOrder', e.target.checked || undefined)} />Made to order</label>
+          </div>
+        ) : null}
+        {cat === 'home_services' ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2"><label className="label" htmlFor="sa">Areas you cover</label><input id="sa" className="input" value={a.serviceArea ?? ''} onChange={(e) => setA('serviceArea', e.target.value)} /></div>
+            <div><label className="label" htmlFor="sc">Call-out fee (KES)</label><input id="sc" type="number" min={0} className="input" value={a.calloutFee ?? ''} onChange={(e) => setA('calloutFee', num(e.target.value))} /></div>
+            <div><label className="label" htmlFor="sh">Hours</label><input id="sh" className="input" value={a.hours ?? ''} onChange={(e) => setA('hours', e.target.value)} placeholder="Mon to Sat, 8am to 6pm" /></div>
+            <label className="flex items-center gap-2 text-[15px]"><input type="checkbox" className="h-5 w-5" checked={!!a.staffVetted} onChange={(e) => setA('staffVetted', e.target.checked || undefined)} />Staff are ID-checked</label>
+            <label className="flex items-center gap-2 text-[15px]"><input type="checkbox" className="h-5 w-5" checked={!!a.insured} onChange={(e) => setA('insured', e.target.checked || undefined)} />Insured</label>
+            <label className="flex items-center gap-2 text-[15px]"><input type="checkbox" className="h-5 w-5" checked={!!a.sameDay} onChange={(e) => setA('sameDay', e.target.checked || undefined)} />Same-day jobs</label>
+          </div>
+        ) : null}
+        {cat === 'utilities' ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2"><label className="label" htmlFor="uc">Coverage</label><input id="uc" className="input" value={a.coverage ?? ''} onChange={(e) => setA('coverage', e.target.value)} placeholder="Neighbourhoods or towns you serve" /></div>
+            <div><label className="label" htmlFor="ui">Installation time (days)</label><input id="ui" type="number" min={0} className="input" value={a.installDays ?? ''} onChange={(e) => setA('installDays', num(e.target.value))} /></div>
+            <div><label className="label" htmlFor="us">Top speed (Mbps)</label><input id="us" type="number" min={0} className="input" value={a.speedMbps ?? ''} onChange={(e) => setA('speedMbps', num(e.target.value))} /></div>
+            <div className="sm:col-span-2"><label className="label" htmlFor="uct">Contract</label><input id="uct" className="input" value={a.contract ?? ''} onChange={(e) => setA('contract', e.target.value)} placeholder="Monthly, no lock-in" /></div>
+          </div>
+        ) : null}
+        {cat === 'grooming' ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <fieldset className="sm:col-span-2"><legend className="label mb-2">Hair types you specialise in</legend>
+              <div className="flex flex-wrap gap-2">
+                {[['afro', 'Afro'], ['curly', 'Curly'], ['straight', 'Straight'], ['all', 'All types']].map(([k, t]) => {
+                  const on = (a.hairTypes ?? []).includes(k);
+                  return <label key={k} className={`pill cursor-pointer ${on ? 'pill-on' : ''}`}><input type="checkbox" className="sr-only" checked={on} onChange={() => setA('hairTypes', on ? (a.hairTypes ?? []).filter((x: string) => x !== k) : [...(a.hairTypes ?? []), k])} />{t}</label>;
+                })}
+              </div>
+            </fieldset>
+            <div><label className="label" htmlFor="gs">Services (comma separated)</label><input id="gs" className="input" defaultValue={(a.services ?? []).join(', ')} onBlur={(e) => setA('services', e.target.value.split(',').map((x) => x.trim()).filter(Boolean))} /></div>
+            <div><label className="label" htmlFor="gh">Hours</label><input id="gh" className="input" value={a.hours ?? ''} onChange={(e) => setA('hours', e.target.value)} /></div>
+          </div>
+        ) : null}
         <fieldset>
           <legend className="label mb-2">Included or available</legend>
           <div className="flex flex-wrap gap-2">
