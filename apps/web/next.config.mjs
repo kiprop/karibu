@@ -1,13 +1,9 @@
 /** @type {import('next').NextConfig} */
-const API_URL = process.env.API_URL ?? 'http://localhost:4000';
-
 const nextConfig = {
   output: 'standalone',
   poweredByHeader: false,
-  // The browser talks to /api/*, proxied to the Node API, so session cookies stay first-party.
-  async rewrites() {
-    return [{ source: '/api/:path*', destination: `${API_URL}/v1/:path*` }];
-  },
+  // The browser talks to /api/*, proxied at runtime to the Node API by src/app/api/[...path]/route.ts,
+  // so session cookies stay first-party.
   async headers() {
     return [
       {

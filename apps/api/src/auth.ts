@@ -32,7 +32,7 @@ export async function createSession(reply: FastifyReply, userId: string) {
   reply.setCookie(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: config.isProd,
+    secure: config.cookieSecure,
     path: '/',
     maxAge: config.sessionDays * 86400,
   });

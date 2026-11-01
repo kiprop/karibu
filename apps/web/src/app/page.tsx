@@ -91,7 +91,7 @@ export default async function Home() {
         {[
           { icon: 'shield', title: 'Checked, not guessed', body: 'Every business passes identity, licence or site checks before it appears. The badge says exactly what we checked and when.' },
           { icon: 'chat', title: 'Message them directly', body: 'Tap to open WhatsApp with a reference code. No middleman, no booking fees, no commission.' },
-          { icon: 'tag', title: 'Fair prices, up front', body: 'See price ranges on every listing, plus what locals typically pay for food and rides.' },
+          { icon: 'tag', title: 'Fair prices, up front', body: 'Check any quote against what locals pay and what other travellers really paid. No more mzungu price.' },
         ].map((b) => (
           <div key={b.title} className="card p-5">
             <Icon name={b.icon} className="text-brand" size={26} />

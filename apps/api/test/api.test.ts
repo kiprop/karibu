@@ -297,3 +297,70 @@ describe('vendors and verification', () => {
     expect(done.status).toBe(200);
   });
 });
+
+describe('I paid this much', () => {
+  const guest = () => client(app, { 'x-device-id': 'device-price-test-1' });
+
+  it('shows community ranges next to checked prices', async () => {
+    const r = await client(app).get('/cities/nairobi/prices');
+    const ugali = r.json.community.find((x: any) => x.item === 'Plate of ugali with stew');
+    expect(ugali.reports).toBe(4);
+    expect(ugali.median).toBe(250);
+    expect(ugali.typicalReports).toBe(3);
+    expect(ugali.ripoffShare).toBe(0.25);
+    expect(r.json.recent.length).toBeGreaterThan(5);
+    expect(r.json.minReports).toBe(3);
+  });
+
+  it('judges a quote against checked and community prices, matching loosely', async () => {
+    const fair = await client(app).get('/prices/fair?city=nairobi&item=ugali%20with%20stew&amount=300');
+    expect(fair.status).toBe(200);
+    expect(fair.json.verdict).toBe('fair');
+    const steep = await client(app).get('/prices/fair?city=nairobi&item=plate%20of%20ugali&amount=900');
+    expect(steep.json.verdict).toBe('very_high');
+    expect(steep.json.times).toBeGreaterThan(2);
+    const short = await client(app).get('/prices/fair?city=nairobi&item=ugali&amount=800');
+    expect(short.json.verdict).toBe('very_high');
+    const unknown = await client(app).get('/prices/fair?city=nairobi&item=hot%20air%20balloon&amount=50000');
+    expect(unknown.json.verdict).toBe('unknown');
+  });
+
+  it('lets a guest report a price and tells them how it compares', async () => {
+    const r = await guest().post('/prices/reports', { city: 'nairobi', group: 'transport', item: 'Boda ride, about 2 km', amount: 600, feel: 'ripoff', area: 'CBD' });
+    expect(r.status).toBe(200);
+    expect(r.json.verdict).toBe('very_high');
+    expect(r.json.currency).toBe('KES');
+    const board = await client(app).get('/cities/nairobi/prices');
+    expect(board.json.community.find((x: any) => x.item === 'Boda ride, about 2 km').reports).toBe(4);
+  });
+
+  it('rejects reports with no place, future dates or no device', async () => {
+    expect((await guest().post('/prices/reports', { group: 'food', item: 'Chapati', amount: 30 })).status).toBe(400);
+    expect((await guest().post('/prices/reports', { city: 'nairobi', group: 'food', item: 'Chapati', amount: 30, paidOn: '2099-01-01' })).status).toBe(400);
+    expect((await client(app).post('/prices/reports', { city: 'nairobi', group: 'food', item: 'Chapati', amount: 30 })).status).toBe(400);
+  });
+
+  it('links a report to a listing and shows what travellers paid there', async () => {
+    const list = await client(app).get('/listings?category=safari');
+    const slug = list.json.results[0].slug;
+    const r = await guest().post('/prices/reports', { listingSlug: slug, group: 'activity', item: 'Full-day game drive', amount: 18000, unit: 'per vehicle', feel: 'fair' });
+    expect(r.status).toBe(200);
+    const d = await client(app).get(`/listings/${slug}`);
+    expect(d.json.listing.paid.reports).toBe(1);
+    expect(d.json.listing.paid.median).toBe(18000);
+  });
+
+  it('lets reviewers hide a report so it leaves the ranges', async () => {
+    const admin = client(app);
+    await signInEmail(admin, 'admin@karibu.example');
+    const out = await admin.get('/admin/price-reports?view=outliers');
+    expect(out.status).toBe(200);
+    const target = out.json.reports.find((x: any) => x.item === 'Plate of ugali with stew' && x.amount === 700);
+    expect(target).toBeTruthy();
+    expect((await admin.post(`/admin/price-reports/${target.id}`, { hidden: true })).status).toBe(400);
+    expect((await admin.post(`/admin/price-reports/${target.id}`, { hidden: true, reason: 'Outlier' })).json.hidden).toBe(true);
+    const board = await client(app).get('/cities/nairobi/prices');
+    expect(board.json.community.find((x: any) => x.item === 'Plate of ugali with stew').reports).toBe(3);
+    expect((await client(app).get('/admin/price-reports')).status).toBe(401);
+  });
+});

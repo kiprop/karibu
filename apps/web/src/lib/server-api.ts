@@ -17,7 +17,8 @@ export async function api<T = any>(path: string, init: RequestInit & { revalidat
     ...init,
     headers: { 'content-type': 'application/json', ...(session ? { cookie: `kb_session=${session}` } : {}), ...(init.headers ?? {}) },
     // Signed-in responses are personal; public lists can be cached briefly.
-    ...(session || init.method ? { cache: 'no-store' as const } : { next: { revalidate: init.revalidate ?? 60 } }),
+    // revalidate: 0 means always fresh (listing pages, price board).
+    ...(session || init.method || init.revalidate === 0 ? { cache: 'no-store' as const } : { next: { revalidate: init.revalidate ?? 60 } }),
   });
   if (!res.ok) {
     let msg = res.statusText;

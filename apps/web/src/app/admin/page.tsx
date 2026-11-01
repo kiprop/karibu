@@ -63,7 +63,7 @@ export default function Admin() {
     <div className="container-k py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><p className="eyebrow">Trust and safety</p><h1 className="font-display text-3xl font-extrabold">Review queue</h1></div>
-        <Link href="/admin/reports" className="btn-outline">Reports</Link>
+        <span className="flex gap-2"><Link href="/admin/prices" className="btn-outline">Price reports</Link><Link href="/admin/reports" className="btn-outline">Reports</Link></span>
       </div>
       {msg ? <p role="status" className="mt-4 rounded-xl bg-surface-2 p-3 font-semibold">{msg}</p> : null}
       <div className="mt-6 grid gap-6 lg:grid-cols-[360px_1fr]">

@@ -20,6 +20,8 @@ services:
       WEB_URL: http://localhost:3000
       COOKIE_SECRET: change-me-to-a-long-random-string-0001
       MIGRATE_ON_START: 'true'
+      # Plain http on localhost; turn this on behind HTTPS.
+      COOKIE_SECURE: 'false'
       EXPOSE_DEV_SECRETS: 'true'
       EARLY_ACCESS: 'true'
       STORAGE_LOCAL_DIR: /data/uploads

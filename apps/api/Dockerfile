@@ -14,6 +14,7 @@ ENV NODE_ENV=production MIGRATIONS_DIR=/app/db/migrations PORT=4000
 COPY --from=build /out .
 COPY --from=build /repo/apps/api/dist ./dist
 COPY db/migrations ./db/migrations
+RUN mkdir -p /data/uploads && chown -R node:node /data
 USER node
 EXPOSE 4000
 CMD ["node", "dist/server.js"]

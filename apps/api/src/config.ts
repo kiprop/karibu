@@ -17,6 +17,8 @@ export const config = {
   corsOrigins: (env.CORS_ORIGINS ?? 'http://localhost:3000').split(',').map((s) => s.trim()),
   cookieSecret: required('COOKIE_SECRET', 'dev-only-change-me-dev-only-change-me'),
   sessionDays: Number(env.SESSION_DAYS ?? 30),
+  /** Secure cookies need HTTPS. Defaults to on in production; set COOKIE_SECURE=false for plain-http local Docker. */
+  cookieSecure: env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : env.NODE_ENV === 'production',
   /** In development, sign-in links and SMS codes are returned in the API response and logged. Never in production. */
   exposeDevSecrets: env.EXPOSE_DEV_SECRETS === 'true' || (env.NODE_ENV !== 'production' && env.EXPOSE_DEV_SECRETS !== 'false'),
   mail: { provider: env.MAIL_PROVIDER ?? 'console', from: env.MAIL_FROM ?? 'Karibu <hello@karibu.example>', apiKey: env.MAIL_API_KEY },

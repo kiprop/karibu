@@ -87,7 +87,7 @@ function Facts({ l }: { l: ListingDetail }) {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   try {
-    const { listing } = await api<{ listing: ListingDetail }>(`/listings/${slug}`);
+    const { listing } = await api<{ listing: ListingDetail }>(`/listings/${slug}`, { revalidate: 0 });
     return { title: listing.title, description: listing.summary };
   } catch {
     return { title: 'Listing' };
@@ -98,7 +98,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   let listing: ListingDetail;
   try {
-    ({ listing } = await api<{ listing: ListingDetail }>(`/listings/${slug}`));
+    ({ listing } = await api<{ listing: ListingDetail }>(`/listings/${slug}`, { revalidate: 0 }));
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
@@ -163,6 +163,27 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
               </section>
             ) : null}
             <section>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="font-display text-xl font-extrabold">What travellers paid</h2>
+                <Link href={`/safety/prices/add?listing=${l.slug}`} className="text-[14px] font-bold text-brand underline">I paid…</Link>
+              </div>
+              {l.paid ? (
+                <>
+                  <p className="mt-1 text-[14px] text-muted">From {l.paid.reports} traveller {l.paid.reports === 1 ? 'report' : 'reports'} in the last 12 months. Compare with the price the business lists.</p>
+                  <ul className="mt-3 flex flex-col gap-2">
+                    {l.paid.latest.map((p, i) => (
+                      <li key={i} className="flex items-center justify-between gap-3 rounded-xl border border-line px-4 py-3">
+                        <span><strong>{p.item}</strong>{p.unit ? <span className="text-muted"> · {p.unit}</span> : null}<span className="block text-[12px] text-muted">paid {shortDate(p.paidOn)}</span></span>
+                        <span className="font-extrabold tabular-nums">{l.paid!.currency} {p.amount.toLocaleString()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="mt-1 text-[14px] text-muted">No one has shared what they paid here yet. If you’ve used this business, your price helps the next traveller know the going rate.</p>
+              )}
+            </section>
+            <section>
               <h2 className="font-display text-xl font-extrabold">Location</h2>
               <p className="mt-1 text-[14px] text-muted">{l.locationIsPrivate ? 'Approximate area only.' : 'Pin set by the business and checked by our team.'}</p>
               <div className="mt-3"><ListingMap lat={l.lat} lon={l.lon} label={l.title} /></div>
@@ -197,6 +218,9 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
             <div>
               <div className="text-2xl font-extrabold">{price(l.currency, l.priceFrom, l.priceTo)}</div>
               <div className="text-[14px] text-muted">{l.priceUnit} · agree the final price directly with the business</div>
+              {l.paid && l.paid.reports >= 2 ? (
+                <div className="mt-2 text-[14px]"><Icon name="tag" size={14} className="mr-1 inline text-teal" />Travellers paid {l.paid.currency} {l.paid.minAmount.toLocaleString()}–{l.paid.maxAmount.toLocaleString()} ({l.paid.reports} reports)</div>
+              ) : null}
             </div>
             <ContactPanel listing={{ id: l.id, title: l.title, phone: l.phone, email: l.email, dates: l.dates.map((d) => d.startsAt.slice(0, 10)) }} />
             <div className="grid grid-cols-2 gap-2">

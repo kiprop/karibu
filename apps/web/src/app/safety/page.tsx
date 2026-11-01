@@ -9,7 +9,7 @@ type Info = { country: { name: string }; pages: { slug: string; title: string; b
 
 const TOOLS = [
   { href: '/safety/check', icon: 'shield', title: 'Check an operator', body: 'Before you pay a safari company, hotel agent or guide.', cls: 'media-transport' },
-  { href: '/safety/prices', icon: 'tag', title: 'Fair prices', body: 'What locals typically pay for food and rides.', cls: 'media-stay' },
+  { href: '/safety/prices', icon: 'tag', title: 'Fair prices', body: 'Check a quote, and see what travellers really paid.', cls: 'media-stay' },
   { href: '/safety/emergency', icon: 'sos', title: 'Emergency card', body: 'Numbers, lost passport steps, embassies.', cls: 'media-event' },
   { href: '/safety/meet', icon: 'people', title: 'Meet safely', body: 'Meeting someone you know only from online.', cls: 'media-experience' },
 ];

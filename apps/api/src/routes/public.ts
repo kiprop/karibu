@@ -147,7 +147,7 @@ export async function publicRoutes(app: FastifyInstance) {
       l.lon = Math.round(l.lon * 100) / 100;
     }
     if (l.reviewCount < 3) l.rating = null;
-    const [photos, dates, reviews] = await Promise.all([
+    const [photos, dates, reviews, paid] = await Promise.all([
       q(`SELECT url, alt FROM listing_photos WHERE listing_id = $1 ORDER BY position`, [l.id]),
       q(
         `SELECT id, starts_at AS "startsAt", ends_at AS "endsAt", confirmed_at IS NOT NULL AS confirmed, ticket_url AS "ticketUrl"
@@ -161,8 +161,17 @@ export async function publicRoutes(app: FastifyInstance) {
           WHERE r.listing_id = $1 AND r.status = 'published' ORDER BY r.created_at DESC LIMIT 20`,
         [l.id],
       ),
+      // "I paid this much" reports at this business, for the most-reported currency.
+      q(
+        `SELECT currency, count(*)::int AS reports,
+                round(percentile_cont(0.5) WITHIN GROUP (ORDER BY amount))::int AS median, min(amount) AS "minAmount", max(amount) AS "maxAmount",
+                (array_agg(json_build_object('item', item, 'amount', amount, 'unit', unit, 'paidOn', paid_on) ORDER BY created_at DESC))[1:3] AS latest
+           FROM price_reports WHERE listing_id = $1 AND NOT is_hidden AND paid_on > current_date - 365
+          GROUP BY currency ORDER BY count(*) DESC LIMIT 1`,
+        [l.id],
+      ),
     ]);
-    return { listing: { ...l, photos: photos.rows, dates: dates.rows, reviews: reviews.rows } };
+    return { listing: { ...l, photos: photos.rows, dates: dates.rows, reviews: reviews.rows, paid: paid.rows[0] ?? null } };
   });
 
   // ---- Enquiries: record first, then hand the traveller to WhatsApp ----
@@ -245,16 +254,6 @@ export async function publicRoutes(app: FastifyInstance) {
     ]);
     if (!country.rows[0]) throw notFound('Unknown country');
     return { country: country.rows[0], pages: pages.rows, contacts: contacts.rows, advisories: advisories.rows };
-  });
-
-  app.get('/cities/:slug/prices', async (req) => {
-    const { slug } = z.object({ slug: z.string().max(80) }).parse(req.params);
-    const { rows } = await q(
-      `SELECT p.group_name AS "group", p.item, p.area, p.currency, p.low, p.high, p.checked_on AS "checkedOn", p.is_example AS "isExample"
-         FROM price_checks p JOIN cities c ON c.id = p.city_id WHERE c.slug = $1 ORDER BY p.group_name, p.item`,
-      [slug],
-    );
-    return { prices: rows };
   });
 
   app.post('/reports', { config: { rateLimit: { max: 10, timeWindow: '1 hour' } } }, async (req) => {

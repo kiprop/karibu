@@ -13,6 +13,7 @@ import { publicRoutes } from './routes/public.js';
 import { travellerRoutes } from './routes/traveller.js';
 import { vendorRoutes } from './routes/vendor.js';
 import { adminRoutes } from './routes/admin.js';
+import { priceRoutes } from './routes/prices.js';
 
 export async function buildApp(opts: { logger?: boolean; rateLimit?: boolean } = {}) {
   const app = Fastify({
@@ -68,6 +69,7 @@ export async function buildApp(opts: { logger?: boolean; rateLimit?: boolean } =
       await v1.register(travellerRoutes);
       await v1.register(vendorRoutes);
       await v1.register(adminRoutes);
+      await v1.register(priceRoutes);
     },
     { prefix: '/v1' },
   );

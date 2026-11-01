@@ -10,7 +10,8 @@ An Enkop Intelligence venture. Product spec: the Karibu PRD v1.0 (Claude doc).
 - Search and filter by country, destination, category, type, budget, price, amenities, verification level and distance; list and map views.
 - Listing pages with category facts (park, vehicle, hot water hours, Wi-Fi speed and so on), verification badge, freshness and ratings (shown once there are 3+ reviews).
 - Contact on WhatsApp with a prefilled message and a reference code (K-XXXXX); optional reminder to review.
-- Safety tools: operator check against a watchlist, fair price guide, emergency numbers, safe meetup guide, reporting.
+- Safety tools: operator check against a watchlist, emergency numbers, safe meetup guide, reporting.
+- **Fair prices and "I paid this much"**: anyone (no account needed) can report what they paid for a meal, ride, tour or souvenir, in a city or at a listed business. The price board shows team-checked prices next to traveller ranges, and "Is this price fair?" compares any quote with both, so visitors know the going rate before they're quoted a "mzungu price". Reports flagged as rip-offs are kept out of the typical range; reviewers can hide outliers at /admin/prices.
 - Signed in (email magic link, or Google): favourites, trip planner by day with a route map and share link, enquiry history, reviews tied to a real enquiry, recommendations. Guest favourites and enquiries merge into the account on sign-in.
 
 **Businesses**
@@ -24,7 +25,7 @@ An Enkop Intelligence venture. Product spec: the Karibu PRD v1.0 (Claude doc).
 
 ```
 apps/web   Next.js 15 (App Router, React 19, Tailwind, Leaflet)   :3000
-             └─ /api/*  proxied to the API, so the session cookie stays first-party
+             └─ /api/*  proxied at runtime (src/app/api/[...path]) to API_URL, so the session cookie stays first-party
 apps/api   Fastify 5 + TypeScript + zod + pg                      :4000  (/v1/*)
 db/        SQL migrations: PostgreSQL 16 + PostGIS, pg_trgm, unaccent
 ```
@@ -57,7 +58,7 @@ Copy `apps/api/.env.example` and `apps/web/.env.example` if you need to change d
 - Business: any phone number, then create a business on /vendor.
 - Reviewer: `admin@karibu.example`, then open /admin.
 
-Full stack in Docker: `docker compose up --build`, then `docker compose exec api node dist/db/seed.js`.
+Full stack in Docker: `docker compose up --build`, then `docker compose exec api node dist/db/seed.js`. After pulling new code, run the same two commands again: new migrations apply on start and the seed is safe to re-run.
 
 ## Tests
 
@@ -71,7 +72,7 @@ CI (`.github/workflows/ci.yml`) runs typecheck, the API tests against PostGIS, a
 
 ## Going to production
 
-- Set `NODE_ENV=production`, a long random `COOKIE_SECRET`, `WEB_URL`, and `EXPOSE_DEV_SECRETS=false`.
+- Set `NODE_ENV=production`, a long random `COOKIE_SECRET`, `WEB_URL`, and `EXPOSE_DEV_SECRETS=false`. Serve over HTTPS and leave `COOKIE_SECURE` unset (the compose file sets it to false only for plain-http localhost).
 - Email: `MAIL_PROVIDER=resend` and `MAIL_API_KEY`. SMS: `SMS_PROVIDER=africastalking`, `SMS_USERNAME`, `SMS_API_KEY`.
 - Payments: set `EARLY_ACCESS=false`, `PAYSTACK_SECRET_KEY` and plan codes, and point the Paystack webhook at `https://<api>/v1/webhooks/paystack`.
 - Map tiles: use a paid tile provider via `NEXT_PUBLIC_TILE_URL`.

@@ -40,6 +40,8 @@ export interface ListingDetail extends ListingCard {
   photos: { url: string; alt: string }[];
   dates: { id: string; startsAt: string; endsAt: string; confirmed: boolean; ticketUrl: string | null }[];
   reviews: { id: string; rating: number; body: string | null; vendorReply: string | null; createdAt: string; author: string }[];
+  /** What travellers reported paying here ("I paid this much"), most-reported currency only. */
+  paid: { currency: string; reports: number; median: number; minAmount: number; maxAmount: number; latest: { item: string; amount: number; unit: string | null; paidOn: string }[] } | null;
 }
 
 export interface Me {

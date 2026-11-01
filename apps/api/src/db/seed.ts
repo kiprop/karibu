@@ -243,6 +243,31 @@ export async function seed() {
     for (const [g, item, area, lo, hi] of prices) {
       await c.query(`INSERT INTO price_checks (city_id, group_name, item, area, currency, low, high, checked_on, is_example) VALUES ($1,$2,$3,$4,'KES',$5,$6, current_date, true)`, [nbo.rows[0].id, g, item, area, lo, hi]);
     }
+    // Example "I paid this much" reports so the price board isn't empty in development. Flagged is_example.
+    await c.query(`DELETE FROM price_reports WHERE is_example`);
+    const paid: Array<[string, string, number, string | null, string | null, string | null]> = [
+      ['food', 'Plate of ugali with stew', 200, 'Street stall, CBD', 'fair', null],
+      ['food', 'Plate of ugali with stew', 250, 'Kenyatta Avenue', 'fair', null],
+      ['food', 'Plate of ugali with stew', 300, 'Westlands', 'fair', null],
+      ['food', 'Plate of ugali with stew', 700, 'Near a hotel, CBD', 'ripoff', 'No menu prices. A local friend paid 250 the next day at the same place.'],
+      ['transport', 'Boda ride, about 2 km', 150, 'Kilimani', 'fair', null],
+      ['transport', 'Boda ride, about 2 km', 200, 'Westlands', 'fair', null],
+      ['transport', 'Boda ride, about 2 km', 500, 'Outside a mall', 'ripoff', 'Agreed nothing upfront. Ask first, or use the app price.'],
+      ['transport', 'Airport taxi to Westlands', 3000, 'JKIA arrivals', 'fair', null],
+      ['transport', 'Airport taxi to Westlands', 3200, 'JKIA arrivals', 'fair', null],
+      ['transport', 'Airport taxi to Westlands', 6500, 'JKIA arrivals', 'ripoff', 'Driver who approached us inside the terminal.'],
+      ['drink', 'Bottle of water, 1 litre', 80, 'Supermarket', 'fair', null],
+      ['drink', 'Bottle of water, 1 litre', 100, 'Kiosk', 'fair', null],
+      ['drink', 'Bottle of water, 1 litre', 250, 'Hawker at a traffic light', 'high', null],
+      ['shopping', 'Maasai shuka (blanket)', 1500, 'Maasai Market', 'high', 'Opening price was 4,000. Bargain to about half.'],
+    ];
+    for (const [i, [g, item, amt, area, feel, note]] of paid.entries()) {
+      await c.query(
+        `INSERT INTO price_reports (city_id, group_name, item, amount, currency, area, feel, note, paid_on, is_example)
+         VALUES ($1,$2,$3,$4,'KES',$5,$6,$7, current_date - $8::int, true)`,
+        [nbo.rows[0].id, g, item, amt, area, feel, note, (i * 3) % 40],
+      );
+    }
     await c.query(
       `INSERT INTO operator_watchlist (name, reason, added_by) SELECT 'Splendor Holiday', 'Travellers reported requests for payment to a personal mobile money number for Mara bookings (example entry).', $1
        WHERE NOT EXISTS (SELECT 1 FROM operator_watchlist WHERE name = 'Splendor Holiday')`,
