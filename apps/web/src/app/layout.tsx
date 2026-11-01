@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: { default: 'EI Karibu · Verified travel and living in East Africa', template: '%s · EI Karibu' },
   description: 'Verified stays, game drives, transport and guides for visitors, plus homes, furniture and home services for long stays and people moving home. By Enkop Intelligence.',
   applicationName: 'EI Karibu',
-  icons: { icon: '/brand/ei-mark.svg' },
+  icons: { icon: '/brand/ei-logo.png', apple: '/brand/ei-logo-192.png' },
   manifest: '/manifest.webmanifest',
 };
 

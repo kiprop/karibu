@@ -1,6 +1,6 @@
 # EI Karibu
 
-**Branding:** the Enkop Intelligence mark lives in one file, `apps/web/public/brand/ei-mark.svg` (currently a placeholder "EI" in the Enkop Beacon colours). Replace it with the real logo, SVG or PNG at any aspect ratio, and it updates the header, footer and app icon.
+**Branding:** the Enkop Intelligence logo is `apps/web/public/brand/ei-logo.png` (original) and `ei-logo-dark.png` (near-black recoloured for dark mode). Replace both to update the header, footer and app icons.
 
 Verified travel information for East Africa. Travellers find stays, game drives, transport, guides, experiences and events, check that a business is real, and message it directly on WhatsApp. Karibu never handles payments between travellers and businesses. Businesses can pay Karibu a subscription for more listings and labelled visibility, but verification is free and can't be bought.
 
