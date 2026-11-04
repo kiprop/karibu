@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
 import { randomToken } from './util.js';
@@ -16,4 +16,12 @@ export async function savePrivateFile(prefix: string, fileName: string, data: Bu
   await mkdir(path.dirname(full), { recursive: true });
   await writeFile(full, data);
   return key;
+}
+
+export async function readPrivateFile(key: string) {
+  if (config.storage.driver !== 'local') throw new Error(`Storage driver ${config.storage.driver} is not implemented yet`);
+  const base = path.resolve(config.storage.localDir);
+  const full = path.resolve(base, key);
+  if (!full.startsWith(base + path.sep)) throw new Error('Bad storage key');
+  return readFile(full);
 }

@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { q, tx } from '../db/pool.js';
-import { createSession, destroySession, requireUser } from '../auth.js';
+import { createSession, destroySession, endOtherSessions, requireUser } from '../auth.js';
+import { assertGoodPassword, checkPassword, hashPassword } from '../lib/passwords.js';
 import { outbox } from '../lib/notify.js';
 import { HttpError, badRequest, randomCode, randomToken, safeEqual, sha256 } from '../lib/util.js';
 
@@ -13,6 +14,62 @@ const deviceId = z.string().regex(/^[A-Za-z0-9_-]{8,64}$/).optional();
 const LINK_TTL_MIN = 20;
 const CODE_TTL_MIN = 10;
 const MAX_CODE_ATTEMPTS = 5;
+const MAX_PASSWORD_TRIES = 5;
+const LOCK_MIN = 15;
+
+type Ident = { kind: 'email'; value: string } | { kind: 'phone'; value: string };
+/** "you@example.com", "+254712345678", "0712 345 678" or "254712345678". Local 07/01 numbers are read as Kenyan. */
+export function parseIdentifier(raw: string): Ident {
+  const t = raw.trim();
+  if (t.includes('@')) return { kind: 'email', value: email.parse(t) };
+  let p = t.replace(/[\s().-]/g, '');
+  if (/^0[17]\d{8}$/.test(p)) p = `+254${p.slice(1)}`;
+  else if (/^254\d{9}$/.test(p)) p = `+${p}`;
+  const ok = phone.safeParse(p);
+  if (!ok.success) throw badRequest('Enter your email, or your mobile number such as 0712 345 678 or +254712345678', 'bad_identifier');
+  return { kind: 'phone', value: ok.data };
+}
+const col = (i: Ident) => (i.kind === 'email' ? 'email' : 'phone_e164');
+const verifiedCol = (i: Ident) => (i.kind === 'email' ? 'email_verified_at' : 'phone_verified_at');
+const remember = z.boolean().optional();
+
+/** Send a 6-digit code by email or SMS. */
+async function sendCode(i: Ident, kind: 'signup_code' | 'reset_code', payload: Record<string, unknown> | null) {
+  const code = randomCode(6);
+  await q(`INSERT INTO login_tokens (kind, target, token_hash, expires_at, payload) VALUES ($1, $2, $3, now() + make_interval(mins => $4), $5)`, [
+    kind, i.value, sha256(code), CODE_TTL_MIN, payload ? JSON.stringify(payload) : null,
+  ]);
+  const what = kind === 'signup_code' ? 'confirm your new Karibu account' : 'reset your Karibu password';
+  if (i.kind === 'email') {
+    await outbox.email(i.value, kind === 'signup_code' ? 'Your Karibu code' : 'Reset your Karibu password',
+      `Your code to ${what} is ${code}.\n\nIt expires in ${CODE_TTL_MIN} minutes. If you didn't ask for it, ignore this email; nothing changes until the code is used.`);
+  } else {
+    await outbox.sms(i.value, `Your Karibu code to ${what} is ${code}. It expires in ${CODE_TTL_MIN} minutes.`);
+  }
+  return code;
+}
+
+/** Use up a code. A wrong code counts against the code's attempts even though the request fails. */
+async function useCode(kind: 'signup_code' | 'reset_code', target: string, code: string) {
+  const r = await tx(async (c) => {
+    const { rows } = await c.query(
+      `SELECT id, token_hash, attempts, payload FROM login_tokens
+        WHERE target = $1 AND kind = $2 AND used_at IS NULL AND expires_at > now()
+        ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+      [target, kind],
+    );
+    const t = rows[0];
+    if (!t || t.attempts >= MAX_CODE_ATTEMPTS) throw badRequest('This code has expired. Ask for a new one.', 'invalid_code');
+    if (!safeEqual(t.token_hash, sha256(code))) {
+      await c.query('UPDATE login_tokens SET attempts = attempts + 1 WHERE id = $1', [t.id]);
+      return null;
+    }
+    await c.query('UPDATE login_tokens SET used_at = now() WHERE id = $1', [t.id]);
+    return { payload: (t.payload ?? {}) as Record<string, any> };
+  });
+  if (!r) throw badRequest('That code is not right. Check it and try again.', 'invalid_code');
+  return r;
+}
 
 /** Attach a guest's device activity (enquiries) to the account that just signed in. */
 async function mergeGuest(userId: string, device?: string, favourites: string[] = []) {
@@ -202,6 +259,133 @@ export async function authRoutes(app: FastifyInstance) {
     return result;
   });
 
+
+  // ================= Passwords =================
+  const pwLimit = { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } };
+
+  /** Sign in with email or mobile number and password. The usual way in. */
+  app.post('/auth/password/login', pwLimit, async (req, reply) => {
+    const b = z
+      .object({ identifier: z.string().min(3).max(254), password: z.string().min(1).max(200), remember, deviceId, favourites: z.array(z.string().uuid()).max(500).optional() })
+      .parse(req.body);
+    const id = parseIdentifier(b.identifier);
+    const { rows } = await q(
+      `SELECT id, password_hash, locked_until, locked_until > now() AS locked, ceil(extract(epoch FROM locked_until - now()) / 60) AS mins
+         FROM users WHERE ${col(id)} = $1 AND deleted_at IS NULL`,
+      [id.value],
+    );
+    const u = rows[0];
+    if (u?.locked) throw new HttpError(429, `Too many wrong passwords. Try again in ${u.mins} minute${u.mins === 1 ? '' : 's'}, or reset your password.`, 'locked');
+    const ok = await checkPassword(u?.password_hash, b.password);
+    if (!u || !ok) {
+      if (u) {
+        await q(
+          `UPDATE users SET failed_logins = CASE WHEN failed_logins + 1 >= $2 THEN 0 ELSE failed_logins + 1 END,
+                  locked_until = CASE WHEN failed_logins + 1 >= $2 THEN now() + make_interval(mins => $3) ELSE locked_until END
+            WHERE id = $1`,
+          [u.id, MAX_PASSWORD_TRIES, LOCK_MIN],
+        );
+      }
+      throw new HttpError(401, 'That email or phone and password don’t match. If you’ve only used sign-in links or codes before, choose “Forgot password” to set one.', 'bad_credentials');
+    }
+    await q(`UPDATE users SET failed_logins = 0, locked_until = NULL, last_seen_at = now() WHERE id = $1`, [u.id]);
+    await mergeGuest(u.id, b.deviceId, b.favourites);
+    await createSession(reply, u.id, { remember: b.remember ?? true, userAgent: String(req.headers['user-agent'] ?? '') });
+    return { ok: true };
+  });
+
+  /** New account with a password. A code sent to the email or phone proves it's yours before the account exists. */
+  app.post('/auth/signup/start', strict, async (req) => {
+    const b = z.object({ identifier: z.string().min(3).max(254), password: z.string().max(200), displayName: z.string().trim().max(80).optional() }).parse(req.body);
+    const id = parseIdentifier(b.identifier);
+    const { rows } = await q(`SELECT password_hash IS NOT NULL AS has FROM users WHERE ${col(id)} = $1 AND deleted_at IS NULL`, [id.value]);
+    if (rows[0]?.has) {
+      throw new HttpError(409, `There’s already a Karibu account with that ${id.kind === 'email' ? 'email' : 'number'}. Sign in, or choose “Forgot password”.`, 'exists');
+    }
+    await assertGoodPassword(b.password, [id.value, b.displayName]);
+    const code = await sendCode(id, 'signup_code', { passwordHash: await hashPassword(b.password), displayName: b.displayName ?? null });
+    return { sent: true, via: id.kind, to: id.value, ...(config.exposeDevSecrets ? { devCode: code } : {}) };
+  });
+
+  app.post('/auth/signup/verify', strict, async (req, reply) => {
+    const b = z
+      .object({ identifier: z.string().min(3).max(254), code: z.string().regex(/^\d{6}$/), remember, deviceId, favourites: z.array(z.string().uuid()).max(500).optional() })
+      .parse(req.body);
+    const id = parseIdentifier(b.identifier);
+    const { payload } = await useCode('signup_code', id.value, b.code);
+    const user = await tx(async (c) => {
+      // An account that only ever used links or codes gets the password; an account that has one already is left alone.
+      const { rows } = await c.query(
+        `INSERT INTO users (${col(id)}, ${verifiedCol(id)}, display_name, password_hash, password_changed_at)
+         VALUES ($1, now(), $2, $3, now())
+         ON CONFLICT (${col(id)}) DO UPDATE
+           SET ${verifiedCol(id)} = coalesce(users.${verifiedCol(id)}, now()),
+               password_hash = coalesce(users.password_hash, EXCLUDED.password_hash),
+               password_changed_at = CASE WHEN users.password_hash IS NULL THEN now() ELSE users.password_changed_at END,
+               display_name = coalesce(users.display_name, EXCLUDED.display_name)
+         RETURNING id, role, deleted_at`,
+        [id.value, payload.displayName ?? null, payload.passwordHash],
+      );
+      if (rows[0].deleted_at) throw badRequest('This account was deleted. Use a different email or number.');
+      await syncVendorContacts(c, rows[0].id);
+      return rows[0];
+    });
+    await mergeGuest(user.id, b.deviceId, b.favourites);
+    await createSession(reply, user.id, { remember: b.remember ?? true, userAgent: String(req.headers['user-agent'] ?? '') });
+    return { user: { id: user.id, role: user.role } };
+  });
+
+  /** Always answers the same way, so it can't be used to find out who has an account. */
+  app.post('/auth/password/forgot', strict, async (req) => {
+    const b = z.object({ identifier: z.string().min(3).max(254) }).parse(req.body);
+    const id = parseIdentifier(b.identifier);
+    const { rows } = await q(`SELECT id FROM users WHERE ${col(id)} = $1 AND deleted_at IS NULL`, [id.value]);
+    const code = rows[0] ? await sendCode(id, 'reset_code', null) : null;
+    return { sent: true, via: id.kind, to: id.value, ...(config.exposeDevSecrets && code ? { devCode: code } : {}) };
+  });
+
+  app.post('/auth/password/reset', strict, async (req, reply) => {
+    const b = z
+      .object({ identifier: z.string().min(3).max(254), code: z.string().regex(/^\d{6}$/), password: z.string().max(200), remember })
+      .parse(req.body);
+    const id = parseIdentifier(b.identifier);
+    await assertGoodPassword(b.password, [id.value]);
+    await useCode('reset_code', id.value, b.code);
+    const hashed = await hashPassword(b.password);
+    const { rows } = await q(
+      `UPDATE users SET password_hash = $2, password_changed_at = now(), failed_logins = 0, locked_until = NULL,
+              ${verifiedCol(id)} = coalesce(${verifiedCol(id)}, now())
+        WHERE ${col(id)} = $1 AND deleted_at IS NULL RETURNING id`,
+      [id.value, hashed],
+    );
+    if (!rows[0]) throw badRequest('This code has expired. Ask for a new one.', 'invalid_code');
+    // A reset signs out every device, in case someone else had the old password.
+    await q(`DELETE FROM sessions WHERE user_id = $1`, [rows[0].id]);
+    await createSession(reply, rows[0].id, { remember: b.remember ?? true, userAgent: String(req.headers['user-agent'] ?? '') });
+    return { ok: true };
+  });
+
+  /** Set a password (accounts that only used links or codes) or change it. Signs out other devices. */
+  app.post('/me/password', strict, async (req) => {
+    const u = requireUser(req);
+    const b = z.object({ current: z.string().max(200).optional(), password: z.string().max(200) }).parse(req.body);
+    const { rows } = await q(`SELECT password_hash, email, phone_e164 FROM users WHERE id = $1`, [u.id]);
+    if (rows[0].password_hash && !(await checkPassword(rows[0].password_hash, b.current ?? ''))) {
+      throw badRequest('Your current password isn’t right', 'bad_credentials');
+    }
+    await assertGoodPassword(b.password, [rows[0].email, rows[0].phone_e164]);
+    await q(`UPDATE users SET password_hash = $2, password_changed_at = now() WHERE id = $1`, [u.id, await hashPassword(b.password)]);
+    await endOtherSessions(req, u.id);
+    return { ok: true };
+  });
+
+  /** Sign out everywhere except here. */
+  app.post('/me/sessions/end-others', async (req) => {
+    const u = requireUser(req);
+    await endOtherSessions(req, u.id);
+    return { ok: true };
+  });
+
   /** Remove a sign-in method. An account always keeps at least one way to sign in. */
   app.delete('/me/sign-in/:method', async (req) => {
     const u = requireUser(req);
@@ -209,6 +393,7 @@ export async function authRoutes(app: FastifyInstance) {
     const { rows } = await q(`SELECT email, phone_e164, google_sub FROM users WHERE id = $1`, [u.id]);
     const r = rows[0];
     const remaining = [method !== 'email' && r.email, method !== 'phone' && r.phone_e164, r.google_sub].filter(Boolean).length;
+    // A password alone isn't a way in: it needs an email or phone to go with it.
     if (!remaining) throw badRequest('Add another way to sign in before removing this one');
     await q(method === 'email' ? `UPDATE users SET email = NULL, email_verified_at = NULL WHERE id = $1` : `UPDATE users SET phone_e164 = NULL, phone_verified_at = NULL WHERE id = $1`, [u.id]);
     return { ok: true };
@@ -228,7 +413,8 @@ export async function authRoutes(app: FastifyInstance) {
     );
     const m = await q(
       `SELECT email, email_verified_at IS NOT NULL AS "emailVerified", phone_e164 AS phone, phone_verified_at IS NOT NULL AS "phoneVerified",
-              google_sub IS NOT NULL AS google FROM users WHERE id = $1`,
+              google_sub IS NOT NULL AS google, password_hash IS NOT NULL AS "hasPassword", password_changed_at AS "passwordChangedAt"
+         FROM users WHERE id = $1`,
       [req.user.id],
     );
     return { user: req.user, vendors: vendors.rows, signIn: m.rows[0] };

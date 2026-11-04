@@ -27,8 +27,13 @@ An Enkop Intelligence venture. Product spec: the Karibu PRD v1.0 (Claude doc).
 - Phone sign-in by SMS code, business profile, listings for each category with a review workflow, private document upload, monthly "still accurate" confirmation, enquiry stats with CSV export, review replies.
 - Plans: Free (1 listing), Pro ($15, 5 listings), Featured ($45, labelled placement). Paystack checkout once early access ends.
 
-**Reviewers and admins**
-- Review queue with documents, verification level decision (1 phone, 2 documents, 3 visit) and notes; reports with 4 hour (safety and scam) and 2 day targets; listing and vendor suspension; watchlist, advisories, price checks and stale content endpoints.
+**Staff console (/admin)**
+- Its own sign-in: work email, password and an authenticator app code, with one-time recovery codes. Sessions end after 30 minutes idle. Staff are invited by an Owner; there's no sign-up.
+- Nine roles, each scoped to a country: Owner, Country lead, Verification officer, Field verifier, Trust and safety, Content and prices editor, Business support, Finance, Analyst. Buttons a role can't use show as locked.
+- Review queue with the evidence checklist, documents, levels 1–3 and notes; field visits booked and reported from a phone; **second approvals** for Visited badges, suspending a verified business and confirming emergency take-downs (nobody approves their own request; a one-person team can act alone and it's recorded).
+- Reports with 4-hour and 2-day targets, the operator watchlist, experiences and price moderation, official links with re-check dates, advisories, team price checks, businesses and traveller recommendations, plans and billing.
+- **Insights**: searches, visitors, enquiries, demand gaps (searches with no verified results), the search-to-experience path, when people message businesses, trust measures against targets, the visitor price premium and fair price index, business growth and verification payoff, and CSV exports. Counts only; no personal details.
+- An **audit log** of every staff sign-in and decision that the database refuses to edit or delete.
 
 ## Who can do what
 
@@ -41,7 +46,7 @@ An Enkop Intelligence venture. Product spec: the Karibu PRD v1.0 (Claude doc).
 | Rate a business (stars, recommend, what you paid, what happened) | no | yes | yes, but not their own |
 | Business tools: listings, documents, enquiries, replies, plans, public page and badge | no | no | yes |
 
-There is one kind of account. Anyone signs in with a verified **email** (magic link), **mobile number** (SMS code) or Google, and can add the other method later from Account. Business tools appear when the account owns or helps run a business (`vendor_members`), never because of how they signed in. A business's WhatsApp and email count as confirmed when they match a verified sign-in, or when the business clicks a link sent to its shared inbox. `users.role` marks staff only (reviewer, admin).
+There is one kind of account. Anyone signs in with their **email or mobile number and a password** ("Keep me signed in" lasts 90 days on that device), and can instead use a one-time email link, an SMS code or Google. New accounts confirm their email or phone with a 6-digit code once; forgotten passwords are reset the same way. Passwords are hashed with Argon2id, checked against known breaches, and 5 wrong tries lock the account for 15 minutes. Business tools appear when the account owns or helps run a business (`vendor_members`), never because of how they signed in. A business's WhatsApp and email count as confirmed when they match a verified sign-in, or when the business clicks a link sent to its shared inbox. Staff are not traveller accounts: they live in `staff_members` with their own sign-in (see Staff console).
 
 ## Architecture
 
@@ -78,7 +83,7 @@ Copy `apps/api/.env.example` and `apps/web/.env.example` if you need to change d
 **Signing in during development.** Email and SMS go to the API console. With `EXPOSE_DEV_SECRETS` on (the default outside production) the sign-in screens also show the magic link or SMS code so you can click straight through.
 - Traveller: any email.
 - Business: any phone number, then create a business on /vendor.
-- Reviewer: `admin@karibu.example`, then open /admin.
+- Staff console: the seed prints an invitation link for `admin@karibu.example` as Owner. Open it, set a password and scan the QR code with an authenticator app, then use /admin. More staff: `pnpm --filter @karibu/api exec tsx src/db/staff-cli.ts invite you@example.com country_lead KE`.
 
 Full stack in Docker: `docker compose up --build`, then `docker compose exec api node dist/db/seed.js`. After pulling new code, run the same two commands again: new migrations apply on start and the seed is safe to re-run.
 

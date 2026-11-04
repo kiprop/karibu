@@ -62,7 +62,7 @@ export interface Me {
   /** role marks staff only (reviewer, admin). Business access comes from vendors, not from role. */
   user: { id: string; email: string | null; phone: string | null; displayName: string | null; role: 'traveller' | 'reviewer' | 'admin' } | null;
   vendors?: { id: string; name: string; slug: string; plan: string; verificationLevel: number }[];
-  signIn?: { email: string | null; emailVerified: boolean; phone: string | null; phoneVerified: boolean; google: boolean };
+  signIn?: { email: string | null; emailVerified: boolean; phone: string | null; phoneVerified: boolean; google: boolean; hasPassword?: boolean; passwordChangedAt?: string | null };
 }
 
 export const CATEGORY_LABEL: Record<Category, string> = {

@@ -14,10 +14,13 @@ import { travellerRoutes } from './routes/traveller.js';
 import { vendorRoutes } from './routes/vendor.js';
 import { adminRoutes } from './routes/admin.js';
 import { priceRoutes } from './routes/prices.js';
+import { staffRoutes } from './routes/staff.js';
+import { insightRoutes } from './routes/insights.js';
+import { staffPlugin } from './lib/staff.js';
 
 export async function buildApp(opts: { logger?: boolean; rateLimit?: boolean } = {}) {
   const app = Fastify({
-    logger: opts.logger ?? (config.env !== 'test' ? { level: config.isProd ? 'info' : 'debug', redact: ['req.headers.cookie', 'req.headers.authorization'] } : false),
+    logger: opts.logger ?? (config.env !== 'test' ? { level: config.isProd ? 'info' : 'debug', redact: ['req.headers.cookie', 'req.headers.authorization', 'req.body.password', 'req.body.current'] } : false),
     trustProxy: true,
     bodyLimit: 1_000_000,
   });
@@ -46,6 +49,7 @@ export async function buildApp(opts: { logger?: boolean; rateLimit?: boolean } =
     allowList: () => opts.rateLimit === false,
   });
   await app.register(authPlugin);
+  await app.register(staffPlugin);
 
   app.setErrorHandler((err: any, req, reply) => {
     if (err instanceof ZodError) {
@@ -70,6 +74,8 @@ export async function buildApp(opts: { logger?: boolean; rateLimit?: boolean } =
       await v1.register(vendorRoutes);
       await v1.register(adminRoutes);
       await v1.register(priceRoutes);
+      await v1.register(staffRoutes);
+      await v1.register(insightRoutes);
     },
     { prefix: '/v1' },
   );

@@ -181,11 +181,11 @@ export async function seed() {
         [cc, name, slug, kind, lat, lon, live],
       );
     }
+    // The first Owner of the staff console (see ensureOwner below). This users row records them as the actor on seeded changes.
     const admin = await c.query(
-      `INSERT INTO users (email, display_name, role, email_verified_at) VALUES ($1, 'Karibu Admin', 'admin', now())
-       ON CONFLICT (email) DO UPDATE SET role = 'admin' RETURNING id`,
-      // Production: set ADMIN_EMAIL to a real inbox you can sign in with.
-      [(process.env.ADMIN_EMAIL ?? 'admin@karibu.example').trim().toLowerCase()],
+      `INSERT INTO users (email, display_name) VALUES ($1, 'Karibu Owner')
+       ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email RETURNING id`,
+      [ownerEmail()],
     );
     const adminId = admin.rows[0].id;
     await c.query(`SELECT set_config('app.actor', $1, true)`, [adminId]);
@@ -356,10 +356,28 @@ export async function seed() {
   });
 }
 
+const ownerEmail = () => (process.env.ADMIN_EMAIL ?? 'admin@karibu.example').trim().toLowerCase();
+
+/**
+ * The staff console needs one Owner to invite everyone else. If there are no staff yet, invite ADMIN_EMAIL as Owner
+ * and return the invitation link (it is also emailed). Does nothing once any staff member exists.
+ */
+export async function ensureOwner() {
+  const { rows } = await pool.query(`SELECT count(*) AS n FROM staff_members`);
+  if (Number(rows[0].n) > 0) return null;
+  const { inviteStaff } = await import('../routes/staff.js');
+  const out = await inviteStaff({ email: ownerEmail(), displayName: process.env.ADMIN_NAME ?? 'Karibu Owner', role: 'owner', country: null });
+  return out.link;
+}
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   seed()
-    .then(() => {
+    .then(() => ensureOwner())
+    .then((link) => {
       console.log('seeded');
+      if (link) {
+        console.log(`\nStaff console: ${ownerEmail()} is invited as Owner. Open this link to set a password and two-step check (works once, 7 days):\n\n  ${link}\n`);
+      }
       return pool.end();
     })
     .catch((e) => {

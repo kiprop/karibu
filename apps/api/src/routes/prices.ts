@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { q } from '../db/pool.js';
-import { requireRole } from '../auth.js';
+import { audit, requireStaff } from '../lib/staff.js';
 import { HttpError, badRequest, notFound } from '../lib/util.js';
 
 /*
@@ -170,7 +170,7 @@ export async function priceRoutes(app: FastifyInstance) {
 
   // ---- Moderation ----
   app.get('/admin/price-reports', async (req) => {
-    requireRole(req, 'reviewer', 'admin');
+    requireStaff(req, 'prices.moderate');
     const { view } = z.object({ view: z.enum(['recent', 'outliers', 'hidden']).default('recent') }).parse(req.query);
     const where = view === 'hidden' ? 'r.is_hidden' : view === 'outliers'
       ? `NOT r.is_hidden AND s.typical_reports >= ${MIN_REPORTS} AND (r.amount > s.median * 2 OR r.amount * 2 < s.median)`
@@ -187,7 +187,7 @@ export async function priceRoutes(app: FastifyInstance) {
   });
 
   app.post('/admin/price-reports/:id', async (req) => {
-    const u = requireRole(req, 'reviewer', 'admin');
+    const s = requireStaff(req, 'prices.moderate');
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
     const b = z
       .object({ hidden: z.boolean(), reason: z.string().trim().max(200).optional() })
@@ -195,9 +195,10 @@ export async function priceRoutes(app: FastifyInstance) {
       .parse(req.body);
     const { rowCount } = await q(
       `UPDATE price_reports SET is_hidden = $2, hidden_reason = CASE WHEN $2 THEN $3 ELSE NULL END, hidden_by = CASE WHEN $2 THEN $4::uuid ELSE NULL END WHERE id = $1`,
-      [id, b.hidden, b.reason ?? null, u.id],
+      [id, b.hidden, b.reason ?? null, s.userId],
     );
     if (!rowCount) throw notFound();
+    await audit(req, s, b.hidden ? 'Hid price report' : 'Restored price report', { type: 'price_report', id }, b.reason);
     return { hidden: b.hidden };
   });
 }

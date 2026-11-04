@@ -39,6 +39,8 @@ services:
       # Never true in production: it would show sign-in links and codes to whoever asks for them.
       EXPOSE_DEV_SECRETS: 'false'
       ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL}
+      ADMIN_NAME: ${ADMIN_NAME:-Karibu Owner}
+      STAFF_SECRET_KEY: ${STAFF_SECRET_KEY:-}
       MAIL_PROVIDER: ${MAIL_PROVIDER:-resend}
       MAIL_FROM: ${MAIL_FROM:-EI Karibu <karibu@enkopintelligence.com>}
       MAIL_API_KEY: ${MAIL_API_KEY:-}

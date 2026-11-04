@@ -120,7 +120,7 @@ export function AuthForm({
               <button className="btn-primary" disabled={busy}>{busy ? 'Sending…' : 'Text me a code'}</button>
             </>
           )}
-          <p className="text-[13px] text-muted">No password. {add ? 'Once confirmed, you can sign in with either.' : 'Things you saved on this device move into your account.'}</p>
+          <p className="text-[13px] text-muted">{add ? 'Once confirmed, you can sign in with either.' : 'Works once. Things you saved on this device move into your account.'}</p>
         </form>
       ) : method === 'email' ? (
         <div className="rounded-2xl border border-line bg-panel p-5" role="status">

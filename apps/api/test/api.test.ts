@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { createHmac } from 'node:crypto';
-import { makeApp, client, signInEmail, signInPhone } from './helpers.js';
+import { makeApp, client, signInEmail, signInPhone, staffClient } from './helpers.js';
 import { pool } from '../src/db/pool.js';
 
 let app: FastifyInstance;
@@ -187,11 +187,6 @@ describe('safety tools', () => {
 describe('vendors and verification', () => {
   let vendor: ReturnType<typeof client>;
   let listingId: string;
-  const admin = () => {
-    const c = client(app);
-    return c;
-  };
-
   it('signs in by SMS code as an ordinary account, and wrong codes use up attempts', async () => {
     vendor = client(app);
     const s = await vendor.post('/auth/phone/start', { phone: '+254711222333' });
@@ -248,8 +243,7 @@ describe('vendors and verification', () => {
 
   it('submits, then staff must give a note to request changes and the right level to approve', async () => {
     expect((await vendor.post(`/vendor/listings/${listingId}/submit`)).json.status).toBe('submitted');
-    const staff = admin();
-    await signInEmail(staff, 'admin@karibu.example');
+    const staff = await staffClient(app, 'verification_officer', { country: 'KE' });
     const queue = await staff.get('/admin/queue');
     expect(queue.json.queue.map((x: any) => x.id)).toContain(listingId);
     expect((await staff.post(`/admin/listings/${listingId}/decision`, { decision: 'changes' })).status).toBe(400);
@@ -298,8 +292,7 @@ describe('vendors and verification', () => {
   });
 
   it('staff see guest reports and can resolve them', async () => {
-    const staff = client(app);
-    await signInEmail(staff, 'admin@karibu.example');
+    const staff = await staffClient(app, 'trust_safety', { country: 'KE' });
     const r = await staff.get('/admin/reports');
     expect(r.json.reports.length).toBeGreaterThan(0);
     expect(r.json.reports[0].category).toMatch(/safety|scam/);
@@ -361,8 +354,7 @@ describe('I paid this much', () => {
   });
 
   it('lets reviewers hide a report so it leaves the ranges', async () => {
-    const admin = client(app);
-    await signInEmail(admin, 'admin@karibu.example');
+    const admin = await staffClient(app, 'content_editor');
     const out = await admin.get('/admin/price-reports?view=outliers');
     expect(out.status).toBe(200);
     const target = out.json.reports.find((x: any) => x.item === 'Plate of ugali with stew' && x.amount === 700);
@@ -506,8 +498,7 @@ describe('share your experience', () => {
   it('shows recent experiences on the share feed, and reviewers can hide one', async () => {
     const feed = await client(app).get('/experiences/recent');
     expect(feed.json.experiences.length).toBeGreaterThan(0);
-    const admin = client(app);
-    await signInEmail(admin, 'admin@karibu.example');
+    const admin = await staffClient(app, 'trust_safety');
     const list = await admin.get('/admin/reviews');
     const target = list.json.reviews[0];
     expect((await admin.post(`/admin/reviews/${target.id}`, { hidden: true, reason: 'Personal details' })).json.hidden).toBe(true);
@@ -571,8 +562,7 @@ describe('settle in: long stays and moving home', () => {
     expect(r.status).toBe(200);
     const id = r.json.listing.id;
     await v.post(`/vendor/listings/${id}/submit`);
-    const admin = client(app);
-    await signInEmail(admin, 'admin@karibu.example');
+    const admin = await staffClient(app, 'owner');
     const low = await admin.post(`/admin/listings/${id}/decision`, { decision: 'approve', level: 1 });
     expect(low.status).toBe(400);
     expect(low.json.error).toMatch(/level 2/);

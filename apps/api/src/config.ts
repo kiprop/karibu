@@ -16,7 +16,8 @@ export const config = {
   /** Allowed browser origins for CORS (comma-separated). The web app normally proxies /api, so CORS is rarely needed. */
   corsOrigins: (env.CORS_ORIGINS ?? 'http://localhost:3000').split(',').map((s) => s.trim()),
   cookieSecret: required('COOKIE_SECRET', 'dev-only-change-me-dev-only-change-me'),
-  sessionDays: Number(env.SESSION_DAYS ?? 30),
+  /** How long "Keep me signed in" lasts on a device. */
+  sessionDays: Number(env.SESSION_DAYS ?? 90),
   /** Secure cookies need HTTPS. Defaults to on in production; set COOKIE_SECURE=false for plain-http local Docker. */
   cookieSecure: env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : env.NODE_ENV === 'production',
   /** In development, sign-in links and SMS codes are returned in the API response and logged. Never in production. */

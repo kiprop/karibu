@@ -72,9 +72,27 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d --bui
 docker compose -f docker-compose.prod.yml --env-file .env.production exec api node dist/db/seed.js
 ```
 
-The database tables are created on start. The seed adds countries, cities, official links, price examples and your admin account. It also adds clearly labelled sample businesses; to leave those out, run the seed with `-e SEED_SAMPLES=false` after `exec`.
+The database tables are created on start. The seed adds countries, cities, official links and price examples. It also adds clearly labelled sample businesses; to leave those out, run the seed with `-e SEED_SAMPLES=false` after `exec`.
 
-Open https://karibu.enkopintelligence.com, sign in with `ADMIN_EMAIL`, and **Admin** appears in the header.
+## 7. The staff console
+
+The staff console at **https://karibu.enkopintelligence.com/admin** has its own sign-in, separate from traveller and business accounts: a work email, a password, and a code from an authenticator app (Google Authenticator, Microsoft Authenticator or 1Password).
+
+The first time the seed runs, it invites `ADMIN_EMAIL` as the **Owner** and prints the invitation link (it's also emailed). Open it to choose a password, scan the QR code with your authenticator app, and save your recovery codes. From then on, invite everyone else from **Team and roles** inside the console.
+
+If the link is lost, or the only Owner loses their phone and recovery codes, use the command line on the server:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec api node dist/db/staff-cli.js list
+docker compose -f docker-compose.prod.yml --env-file .env.production exec api node dist/db/staff-cli.js reset you@example.com
+docker compose -f docker-compose.prod.yml --env-file .env.production exec api node dist/db/staff-cli.js invite person@example.com country_lead KE "Their Name"
+```
+
+Roles: `owner`, `country_lead`, `verification_officer`, `field_verifier`, `trust_safety`, `content_editor`, `business_support`, `finance`, `analyst`. Use `ALL` instead of a country code for all countries.
+
+Staff sessions end after 30 minutes without activity (`STAFF_IDLE_MINUTES`) and after 12 hours at most (`STAFF_SESSION_HOURS`). Authenticator secrets are encrypted with `STAFF_SECRET_KEY` (falls back to `COOKIE_SECRET`); if you change that key, every staff member has to be reset.
+
+For an extra lock, you can put **Cloudflare Access** (Zero Trust, free for up to 50 users) in front of `karibu.enkopintelligence.com/admin*` and `/api/staff*`, `/api/admin*`, allowing only your staff emails.
 
 ## Updating
 
@@ -84,6 +102,8 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d --bui
 ```
 
 Database changes apply automatically on start. Re-running the seed is safe.
+
+**Upgrading to the staff console (November 2026).** The old Admin link for traveller accounts is gone. After updating, run the seed once (`… exec api node dist/db/seed.js`); because no staff exist yet, it invites `ADMIN_EMAIL` as Owner and prints the link. See section 7.
 
 ## Backups
 

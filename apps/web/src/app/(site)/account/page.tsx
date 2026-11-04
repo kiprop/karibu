@@ -61,6 +61,71 @@ function SignInMethods() {
   );
 }
 
+/** Set a password (accounts that only used links or codes) or change it. Changing it signs out other devices. */
+function PasswordSection() {
+  const { me } = useSession();
+  const has = !!me.signIn?.hasPassword;
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState('');
+  const [pw, setPw] = useState('');
+  const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      await call('/me/password', { body: { current: has ? current : undefined, password: pw } });
+      setMsg({ ok: true, t: has ? 'Password changed. Other devices are signed out.' : 'Password set. You can now sign in with it.' });
+      setOpen(false);
+      setCurrent('');
+      setPw('');
+    } catch (x) {
+      setMsg({ ok: false, t: (x as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function endOthers() {
+    await call('/me/sessions/end-others', { body: {} });
+    setMsg({ ok: true, t: 'Signed out on every other device.' });
+  }
+  return (
+    <section className="mt-6 card flex flex-col gap-3 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-extrabold">Password</h2>
+          <p className="text-[14px] text-muted">
+            {has ? `Set${me.signIn?.passwordChangedAt ? ` ${shortDate(me.signIn.passwordChangedAt)}` : ''}. Sign in with your email or mobile number and this password.` : 'You sign in with one-time links or codes. Add a password to sign in faster.'}
+          </p>
+        </div>
+        {!open ? <button className="btn-outline h-9 text-[14px]" onClick={() => setOpen(true)}>{has ? 'Change password' : 'Set a password'}</button> : null}
+      </div>
+      {open ? (
+        <form onSubmit={save} className="flex flex-col gap-3 rounded-2xl bg-soft p-4">
+          {has ? (
+            <div>
+              <label className="label" htmlFor="pw-cur">Current password</label>
+              <input id="pw-cur" type="password" autoComplete="current-password" required className="input mt-1" value={current} onChange={(e) => setCurrent(e.target.value)} />
+            </div>
+          ) : null}
+          <div>
+            <label className="label" htmlFor="pw-new">New password</label>
+            <input id="pw-new" type="password" autoComplete="new-password" required minLength={8} className="input mt-1" value={pw} onChange={(e) => setPw(e.target.value)} />
+            <p className="mt-1 text-[13px] text-muted">At least 8 characters. A short phrase of a few words works well.</p>
+          </div>
+          <div className="flex gap-2">
+            <button className="btn-primary h-10" disabled={busy}>{busy ? 'Saving…' : 'Save password'}</button>
+            <button type="button" className="btn-ghost h-10" onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </form>
+      ) : null}
+      <button className="self-start text-[14px] font-bold text-muted hover:text-ink" onClick={endOthers}>Sign out on all other devices</button>
+      {msg ? <p role="status" className={`text-[14px] font-semibold ${msg.ok ? 'text-teal' : 'text-danger'}`}>{msg.t}</p> : null}
+    </section>
+  );
+}
+
 type Enq = { id: string; refCode: string; createdAt: string; slug: string | null; title: string | null; vendorName: string; reviewed: boolean };
 
 function ReviewForm({ e, onDone }: { e: Enq; onDone: () => void }) {
@@ -155,6 +220,7 @@ export default function Account() {
       </section>
 
       <SignInMethods />
+      <PasswordSection />
 
       {me.vendors?.length ? (
         <section className="mt-10 card flex flex-wrap items-center justify-between gap-3 p-5">

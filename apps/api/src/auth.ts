@@ -22,20 +22,31 @@ declare module 'fastify' {
 
 export const SESSION_COOKIE = 'kb_session';
 
-export async function createSession(reply: FastifyReply, userId: string) {
+/**
+ * remember=true ("Keep me signed in", the default): the cookie lasts SESSION_DAYS (90) on this device.
+ * remember=false: the cookie ends when the browser closes, and the server forgets it after a day.
+ */
+export async function createSession(reply: FastifyReply, userId: string, opts: { remember?: boolean; userAgent?: string } = {}) {
+  const remember = opts.remember ?? true;
   const token = randomToken();
-  await q(`INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1, $2, now() + make_interval(days => $3))`, [
-    userId,
-    sha256(token),
-    config.sessionDays,
-  ]);
+  await q(
+    `INSERT INTO sessions (user_id, token_hash, expires_at, remember, user_agent)
+     VALUES ($1, $2, now() + make_interval(days => $3), $4, $5)`,
+    [userId, sha256(token), remember ? config.sessionDays : 1, remember, opts.userAgent?.slice(0, 300) ?? null],
+  );
   reply.setCookie(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: config.cookieSecure,
     path: '/',
-    maxAge: config.sessionDays * 86400,
+    ...(remember ? { maxAge: config.sessionDays * 86400 } : {}),
   });
+}
+
+/** Sign out everywhere else, for example after a password change. */
+export async function endOtherSessions(req: FastifyRequest, userId: string) {
+  const token = req.cookies[SESSION_COOKIE];
+  await q(`DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2`, [userId, token ? sha256(token) : '']);
 }
 
 export async function destroySession(req: FastifyRequest, reply: FastifyReply) {

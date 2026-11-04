@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
-import { AuthForm } from '@/components/AuthForm';
+import { PasswordAuth } from '@/components/PasswordAuth';
 import { Icon } from '@/components/Icon';
 
 function SignIn() {
@@ -11,6 +11,7 @@ function SignIn() {
   const business = sp.get('for') === 'business';
   const raw = sp.get('next');
   const next = raw && raw.startsWith('/') ? raw : business ? '/vendor' : '/saved';
+  const mode = sp.get('mode') === 'create' ? 'create' : sp.get('mode') === 'forgot' ? 'forgot' : 'signin';
 
   return (
     <div className="container-k grid max-w-4xl gap-10 py-12 md:grid-cols-[1.1fr_1fr]">
@@ -19,11 +20,11 @@ function SignIn() {
         <h1 className="mt-1 font-display text-3xl font-extrabold">{business ? 'Sign in to list your business' : 'Sign in to Karibu'}</h1>
         <p className="mt-2 text-muted">
           {business
-            ? 'Use your business mobile number or company email. It’s the same free Karibu account travellers use; your business tools appear once you add your business.'
-            : 'One free account for planning trips and, if you run one, managing a business. Use your email or your mobile number.'}
+            ? 'Use your business mobile number or company email and a password. It’s the same free Karibu account travellers use; your business tools appear once you add your business.'
+            : 'One free account for planning trips and, if you run one, managing a business. Sign in with your email or mobile number and password.'}
         </p>
         <div className="mt-6">
-          <AuthForm next={next} defaultMethod={business ? 'phone' : 'email'} emailLabel={business ? 'Company email' : 'Email'} emailPlaceholder={business ? 'bookings@yourcamp.co.ke' : 'you@example.com'} />
+          <PasswordAuth next={next} business={business} initialMode={mode} />
         </div>
         {!business ? (
           <p className="mt-8 border-t border-line pt-6 text-[14px]">
@@ -41,7 +42,7 @@ function SignIn() {
         {business ? (
           <ol className="mt-4 flex flex-col gap-4 text-[15px]">
             {[
-              ['Sign in', 'With your business mobile or company email. A code or link proves it’s yours.'],
+              ['Create your account', 'With your business mobile or company email and a password. A one-time code proves it’s yours.'],
               ['Add your business', 'Name, WhatsApp and licence number. Your WhatsApp is verified straight away if it’s the number you signed in with.'],
               ['Add listings', 'Rooms, game drives, transfers or tours, with prices and what’s included.'],
               ['We verify you, free', 'Documents and, for some categories, a visit. Then you go live.'],

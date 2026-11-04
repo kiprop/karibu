@@ -152,6 +152,14 @@ export async function publicRoutes(app: FastifyInstance) {
     const results = rows.map(({ total: _t, ...r }) => ({ ...r, rating: (r.reviewCount ?? 0) >= 3 ? r.rating : null }));
     // Featured: labelled, capped at 2, shown separately from organic results and still verified.
     const featured = f.page === 1 ? results.filter((r) => r.isFeatured).slice(0, 2) : [];
+    // Remember what was searched (not who searched) so the team can see demand and gaps.
+    if (f.page === 1 && !f.ids && (f.q || f.city || f.category || f.mode)) {
+      q(
+        `INSERT INTO search_log (device_id, query, country_code, city_slug, category, mode, results)
+         VALUES ($1, $2, coalesce($3, (SELECT country_code FROM cities WHERE slug = $4)), $4, $5, $6, $7)`,
+        [req.deviceId, f.q?.slice(0, 120) ?? null, f.country ?? null, f.city ?? null, f.category ?? null, f.mode ?? (f.category ? ((SETTLE_CATEGORIES as readonly string[]).includes(f.category) ? 'settle' : 'visit') : null), total],
+      ).catch(() => {});
+    }
     return { total, page: f.page, pageSize: f.pageSize, featured, results };
   });
 
@@ -168,6 +176,7 @@ export async function publicRoutes(app: FastifyInstance) {
     );
     const l = rows[0];
     if (!l) throw notFound('This listing is not available. It may be under review or no longer verified.');
+    q(`INSERT INTO listing_views (listing_id) VALUES ($1) ON CONFLICT (listing_id, day) DO UPDATE SET views = listing_views.views + 1`, [l.id]).catch(() => {});
     if (l.locationIsPrivate) {
       // Home-based hosts: only an approximate area is public.
       l.lat = Math.round(l.lat * 100) / 100;
