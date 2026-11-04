@@ -64,7 +64,7 @@ export default async function Settle() {
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
             {SETTLE_CATEGORIES.map((c) => (
-              <Link key={c} href={`/explore?category=${c}`} className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 font-bold hover:bg-white/20">
+              <Link key={c} href={`/explore?category=${c}`} className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 font-bold hover:bg-white/20">
                 <Icon name={CATEGORY_ICON[c]} size={18} />{CATEGORY_LABEL[c]}
               </Link>
             ))}

@@ -43,7 +43,7 @@ export default function Plans() {
       {early ? <p className="mt-4 inline-flex rounded-xl bg-teal-soft px-3 py-2 font-semibold text-teal">All plans are free during early access.</p> : null}
       <div className="mt-8 grid gap-4 md:grid-cols-3">
         {plans.map((p) => (
-          <section key={p.code} className={`card flex flex-col gap-3 p-6 ${p.code === 'pro' ? 'border-2 border-brand' : ''}`}>
+          <section key={p.code} className={`card flex flex-col gap-3 p-6 ${p.code === 'pro' ? 'border-brand ring-1 ring-brand' : ''}`}>
             {p.code === 'pro' ? <span className="chip self-start bg-brand-soft text-brand">Most popular</span> : null}
             <h2 className="font-display text-2xl font-extrabold">{p.name}</h2>
             <div><span className="text-4xl font-extrabold">${p.monthlyUsd}</span> <span className="text-muted">{p.monthlyUsd ? 'per month' : 'forever'}</span></div>

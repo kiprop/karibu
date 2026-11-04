@@ -60,10 +60,10 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
           { label: cat ? CATEGORY_LABEL[cat] : sp.q ? `“${sp.q}”` : sp.city ? 'Everything' : 'All' },
         ]} />
       ) : null}
-      <div role="tablist" aria-label="What are you planning?" className="mb-5 inline-flex rounded-full bg-soft p-1 text-[14px] font-bold">
+      <div role="tablist" aria-label="What are you planning?" className="mb-5 inline-flex rounded-lg bg-soft p-1 text-[14px] font-bold">
         {([['visit', 'Visiting'], ['settle', 'Staying long or moving home']] as const).map(([m, t]) => (
           <Link key={m} role="tab" aria-selected={mode === m} href={qs({ ...sp, category: undefined, subtype: undefined, amenities: undefined }, { mode: m === 'settle' ? 'settle' : undefined })}
-            className={`rounded-full px-4 py-2 ${mode === m ? 'bg-panel shadow-sm' : 'text-muted'}`}>{t}</Link>
+            className={`rounded-md px-4 py-1.5 ${mode === m ? 'bg-panel shadow-sm' : 'text-muted'}`}>{t}</Link>
         ))}
       </div>
       <h1 className="font-display text-3xl font-extrabold">{cat ? CATEGORY_LABEL[cat] : sp.q ? `Results for “${sp.q}”` : mode === 'settle' ? 'Settle in' : 'Explore East Africa'}</h1>

@@ -56,7 +56,7 @@ export default async function Safety({ searchParams }: { searchParams: Promise<{
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {TOOLS.map((t) => (
-          <Link key={t.href} href={t.href} className={`flex min-h-[150px] flex-col gap-2 rounded-[20px] p-5 text-white ${t.cls}`}>
+          <Link key={t.href} href={t.href} className={`flex min-h-[150px] flex-col gap-2 rounded-2xl p-5 text-white ${t.cls}`}>
             <Icon name={t.icon} size={30} />
             <strong className="font-display text-xl">{t.title}</strong>
             <span className="text-[14px] opacity-95">{t.body}</span>

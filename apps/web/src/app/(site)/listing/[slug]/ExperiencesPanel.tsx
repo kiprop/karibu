@@ -71,7 +71,7 @@ export function ExperiencesPanel(p: Props) {
           No experiences yet. Used this business? Your rating and what you paid help the next person decide, and avoid paying more than they should.
         </p>
       ) : (
-        <div className="mt-4 grid gap-6 rounded-[20px] border border-line p-5 md:grid-cols-[220px_1fr]">
+        <div className="mt-4 grid gap-6 rounded-2xl border border-line p-5 md:grid-cols-[220px_1fr]">
           <div>
             <div className="flex items-baseline gap-2">
               <span className="font-display text-5xl font-extrabold">{p.rating != null ? p.rating.toFixed(1) : '–'}</span>

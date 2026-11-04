@@ -20,12 +20,12 @@ export function HeroSearch() {
       <div role="tablist" aria-label="What are you looking for?" className="flex gap-1 overflow-x-auto pb-2">
         {TABS.map((x) => (
           <button key={x.key} type="button" role="tab" aria-selected={tab === x.key} onClick={() => setTab(x.key)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[14px] font-bold ${tab === x.key ? 'bg-ink text-ground' : 'text-muted hover:bg-soft'}`}>
+            className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13.5px] font-semibold ${tab === x.key ? 'bg-ink text-ground' : 'text-muted hover:bg-soft hover:text-ink'}`}>
             <Icon name={x.icon} size={17} />{x.label}
           </button>
         ))}
       </div>
-      <form action="/explore" role="search" className="flex items-center gap-2 rounded-full border-2 border-ink bg-panel p-1.5 pl-5 shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
+      <form action="/explore" role="search" className="flex items-center gap-2 rounded-xl border border-line bg-panel p-1.5 pl-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.05)] focus-within:border-brand focus-within:ring-[3px] focus-within:ring-brand/15">
         <Icon name="search" className="text-muted" />
         <label htmlFor="hero-q" className="sr-only">{t.label}</label>
         <input id="hero-q" name="q" placeholder={t.placeholder} className="min-w-0 flex-1 bg-transparent py-2 text-[16px] outline-none placeholder:text-muted" />

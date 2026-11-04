@@ -292,7 +292,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
             contactedCount={l.contactedCount} breakdown={l.ratingBreakdown} travellerTypes={l.travellerTypes} mentions={l.mentions} initial={l.reviews} settle={settle}
           />
 
-          <section className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-line p-5">
+          <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line p-5">
             <div>
               <p className="eyebrow">About the business</p>
               <p className="mt-1 text-lg font-extrabold">{l.vendorName}</p>
@@ -305,7 +305,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
         </div>
 
         <aside className="lg:sticky lg:top-32 lg:self-start">
-          <div className="card flex flex-col gap-4 p-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+          <div className="card flex flex-col gap-4 p-5 shadow-sm">
             <div>
               <div className="text-[13px] text-muted">From</div>
               <div className="text-2xl font-extrabold">{price(l.currency, l.priceFrom, l.priceTo)}</div>

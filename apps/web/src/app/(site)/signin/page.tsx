@@ -37,7 +37,7 @@ function SignIn() {
         )}
       </div>
 
-      <aside className="rounded-[20px] bg-soft p-6">
+      <aside className="rounded-2xl bg-soft p-6">
         <h2 className="font-display text-xl font-extrabold">{business ? 'What happens next' : 'Do I need an account?'}</h2>
         {business ? (
           <ol className="mt-4 flex flex-col gap-4 text-[15px]">

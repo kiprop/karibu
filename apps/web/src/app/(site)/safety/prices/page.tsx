@@ -62,7 +62,7 @@ export default async function Prices({ searchParams }: { searchParams: Promise<{
 
       <div className="mt-6"><FairCheck city={board.city.slug} currency={cur} items={items} /></div>
 
-      <Link href={`/safety/prices/add?city=${board.city.slug}`} className="mt-6 flex items-center justify-between gap-4 rounded-[20px] p-5 text-white media-stay">
+      <Link href={`/safety/prices/add?city=${board.city.slug}`} className="mt-6 flex items-center justify-between gap-4 rounded-2xl p-5 text-white media-stay">
         <span>
           <strong className="block font-display text-2xl">I paid this much</strong>
           <span className="text-[15px] opacity-95">Share what you paid for a meal, ride, tour or souvenir. It takes 20 seconds, no account needed.</span>

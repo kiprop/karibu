@@ -52,10 +52,10 @@ export default async function Home() {
 
   return (
     <>
-      <section className="bg-gradient-to-b from-brand-soft to-ground">
+      <section className="border-b border-line bg-panel">
         <div className="container-k pb-10 pt-12 sm:pt-16">
           <p className="eyebrow text-brand">{countries.map((c) => c.name).join(' · ')}</p>
-          <h1 className="mt-3 max-w-3xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
+          <h1 className="mt-3 max-w-3xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-[54px]">
             East Africa without the guesswork.
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-muted">
@@ -81,7 +81,7 @@ export default async function Home() {
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
           {CATS.map((c) => (
             <Link key={c.key} href={`/explore?category=${c.key}`} className="flex flex-col items-center gap-2 text-center text-[13px] font-bold">
-              <span className={`flex h-16 w-16 items-center justify-center rounded-[20px] text-white ${c.cls}`}>
+              <span className={`flex h-16 w-16 items-center justify-center rounded-2xl text-white ${c.cls}`}>
                 <Icon name={CATEGORY_ICON[c.key]} size={28} />
               </span>
               {c.label}
@@ -103,7 +103,7 @@ export default async function Home() {
         </div>
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {SETTLE.map((c) => (
-            <Link key={c.key} href={`/explore?category=${c.key}`} className={`flex min-h-[140px] flex-col justify-between rounded-[20px] p-4 text-white ${c.cls}`}>
+            <Link key={c.key} href={`/explore?category=${c.key}`} className={`flex min-h-[140px] flex-col justify-between rounded-2xl p-4 text-white ${c.cls}`}>
               <Icon name={CATEGORY_ICON[c.key]} size={28} />
               <span><strong className="block font-display text-lg leading-tight">{c.label}</strong><span className="text-[13px] opacity-90">{c.body}</span></span>
             </Link>
@@ -128,7 +128,7 @@ export default async function Home() {
       </section>
 
       <section className="container-k mt-12">
-        <div className="flex flex-col gap-4 rounded-[24px] p-6 text-white media-safari sm:flex-row sm:items-center sm:justify-between sm:p-8">
+        <div className="flex flex-col gap-4 rounded-2xl p-6 text-white media-safari sm:flex-row sm:items-center sm:justify-between sm:p-8">
           <div>
             <h2 className="font-display text-2xl font-extrabold sm:text-3xl">Been somewhere? Pay it forward.</h2>
             <p className="mt-1 max-w-xl opacity-95">Share what you paid and how you were treated. It takes a minute and it’s how the next traveller avoids the mzungu price.</p>
@@ -143,7 +143,7 @@ export default async function Home() {
       <Row title="Top rated by travellers" href="/explore?sort=rating" items={rated.results} />
 
       <section className="container-k mt-12">
-        <Link href="/safety/check" className="flex flex-col gap-3 rounded-[24px] bg-ink p-6 text-ground sm:flex-row sm:items-center sm:p-8">
+        <Link href="/safety/check" className="flex flex-col gap-3 rounded-2xl bg-ink p-6 text-ground sm:flex-row sm:items-center sm:p-8">
           <Icon name="shield" size={40} className="text-[#3FD1BE]" />
           <div className="flex-1">
             <h2 className="font-display text-2xl font-extrabold">Booking a safari elsewhere? Check the operator first.</h2>

@@ -25,7 +25,7 @@ export function Gallery({ photos, category, title }: { photos: { url: string; al
 
   if (!photos.length) {
     return (
-      <Media category={category} className="aspect-[16/7] rounded-[24px]" iconSize={72}>
+      <Media category={category} className="aspect-[16/7] rounded-2xl" iconSize={72}>
         <span className="absolute bottom-3 left-4 text-[12px] font-semibold text-white/90">Photos coming from the business</span>
       </Media>
     );
@@ -33,7 +33,7 @@ export function Gallery({ photos, category, title }: { photos: { url: string; al
   const shown = photos.slice(0, 5);
   return (
     <>
-      <div className={`grid h-[260px] gap-2 overflow-hidden rounded-[24px] sm:h-[400px] ${shown.length >= 3 ? 'grid-cols-4 grid-rows-2' : 'grid-cols-1'}`}>
+      <div className={`grid h-[260px] gap-2 overflow-hidden rounded-2xl sm:h-[400px] ${shown.length >= 3 ? 'grid-cols-4 grid-rows-2' : 'grid-cols-1'}`}>
         {shown.map((p, i) => (
           <button key={p.url} type="button" onClick={() => setOpen(i)} aria-label={`Open photo ${i + 1} of ${photos.length}: ${p.alt || title}`}
             className={`relative overflow-hidden bg-soft ${shown.length >= 3 ? (i === 0 ? 'col-span-4 row-span-2 sm:col-span-2' : 'hidden sm:block') : ''}`}>

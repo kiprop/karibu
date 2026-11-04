@@ -13,36 +13,36 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-panel focus:p-3">
         Skip to content
       </a>
-      <header className="sticky top-0 z-40 border-b border-line bg-ground/90 backdrop-blur">
-        <div className="container-k flex h-16 items-center gap-4">
+      <header className="sticky top-0 z-40 border-b border-line bg-panel/95 backdrop-blur">
+        <div className="container-k flex h-14 items-center gap-4">
           <BrandLockup />
           <nav aria-label="Main" className="ml-2 hidden items-center gap-0.5 whitespace-nowrap lg:flex">
-            <Link className="btn-ghost min-h-[38px] px-3 text-[14px]" href="/explore">Explore</Link>
-            <Link className="btn-ghost min-h-[38px] px-3 text-[14px]" href="/settle">Settle in</Link>
-            <Link className="btn-ghost min-h-[38px] px-3 text-[14px]" href="/safety/prices">Fair prices</Link>
-            <Link className="btn-ghost min-h-[38px] px-3 text-[14px]" href="/safety">Travel smart</Link>
+            <Link className="btn-ghost min-h-[34px] px-3 text-[14px]" href="/explore">Explore</Link>
+            <Link className="btn-ghost min-h-[34px] px-3 text-[14px]" href="/settle">Settle in</Link>
+            <Link className="btn-ghost min-h-[34px] px-3 text-[14px]" href="/safety/prices">Fair prices</Link>
+            <Link className="btn-ghost min-h-[34px] px-3 text-[14px]" href="/safety">Travel smart</Link>
           </nav>
           <div className="ml-auto flex items-center gap-2 whitespace-nowrap">
-            <Link href="/safety" className="btn-ghost min-h-[38px] px-2.5 text-[14px] lg:hidden" aria-label="Travel smart: safety and official links">
+            <Link href="/safety" className="btn-ghost min-h-[34px] px-2.5 text-[14px] lg:hidden" aria-label="Travel smart: safety and official links">
               <Icon name="shield" size={20} />
             </Link>
-            <Link href="/share" className="btn-primary hidden min-h-[38px] px-4 text-[14px] lg:inline-flex">
+            <Link href="/share" className="btn-primary hidden min-h-[34px] px-4 text-[14px] lg:inline-flex">
               <Icon name="plus" size={18} /> Share
             </Link>
-            <Link href="/saved" className="btn-ghost hidden min-h-[38px] px-3 text-[14px] lg:inline-flex" aria-label="Saved and trips">
+            <Link href="/saved" className="btn-ghost hidden min-h-[34px] px-3 text-[14px] lg:inline-flex" aria-label="Saved and trips">
               <Icon name="heart" size={18} /> <span className="hidden xl:inline">Saved</span>
             </Link>
             {hasBusiness ? (
-              <Link href="/vendor" className="btn-ghost min-h-[38px] px-3 text-[14px]"><Icon name="briefcase" size={18} /> <span className="hidden sm:inline">My business</span></Link>
+              <Link href="/vendor" className="btn-ghost min-h-[34px] px-3 text-[14px]"><Icon name="briefcase" size={18} /> <span className="hidden sm:inline">My business</span></Link>
             ) : (
-              <Link href="/vendor" className="btn-ghost hidden min-h-[38px] px-3 text-[14px] xl:inline-flex">List your business</Link>
+              <Link href="/vendor" className="btn-ghost hidden min-h-[34px] px-3 text-[14px] xl:inline-flex">List your business</Link>
             )}
             {me.user ? (
-              <Link href="/account" className="btn-outline min-h-[38px] px-3 text-[14px]">
+              <Link href="/account" className="btn-outline min-h-[34px] px-3 text-[14px]">
                 <Icon name="user" size={18} /> <span className="hidden sm:inline">Account</span>
               </Link>
             ) : (
-              <Link href="/signin" className="btn-dark min-h-[38px] px-4 text-[14px]">Sign in</Link>
+              <Link href="/signin" className="btn-dark min-h-[34px] px-4 text-[14px]">Sign in</Link>
             )}
           </div>
         </div>
@@ -69,7 +69,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           ))}
         </div>
       </nav>
-      <footer className="mt-16 border-t border-line">
+      <footer className="mt-16 border-t border-line bg-panel">
         <div className="container-k grid gap-8 py-10 text-[14px] sm:grid-cols-3">
           <div>
             <BrandLockup href={null} />

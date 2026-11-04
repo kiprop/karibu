@@ -88,7 +88,7 @@ export function AuthForm({
   return (
     <div className="flex flex-col gap-4">
       {!only && step === 'enter' ? (
-        <div role="tablist" aria-label="How to sign in" className="grid grid-cols-2 gap-1 rounded-full bg-soft p-1">
+        <div role="tablist" aria-label="How to sign in" className="grid grid-cols-2 gap-1 rounded-lg bg-soft p-1">
           {(['email', 'phone'] as Method[]).map((m) => (
             <button
               key={m}
@@ -96,7 +96,7 @@ export function AuthForm({
               role="tab"
               aria-selected={method === m}
               onClick={() => { setMethod(m); setErr(null); }}
-              className={`flex min-h-[40px] items-center justify-center gap-2 rounded-full text-[15px] font-bold ${method === m ? 'bg-panel shadow-sm' : 'text-muted'}`}
+              className={`flex min-h-[40px] items-center justify-center gap-2 rounded-md text-[15px] font-bold ${method === m ? 'bg-panel shadow-sm' : 'text-muted'}`}
             >
               <Icon name={m === 'email' ? 'chat' : 'phone'} size={16} />
               {m === 'email' ? 'Email' : 'Phone'}

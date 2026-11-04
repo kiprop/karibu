@@ -120,10 +120,10 @@ export function PasswordAuth({ next = '/saved', initialMode = 'signin', business
   return (
     <div className="flex flex-col gap-4">
       {mode === 'signin' || mode === 'create' ? (
-        <div role="tablist" aria-label="Sign in or create an account" className="grid grid-cols-2 gap-1 rounded-full bg-soft p-1">
+        <div role="tablist" aria-label="Sign in or create an account" className="grid grid-cols-2 gap-1 rounded-lg bg-soft p-1">
           {([['signin', 'Sign in'], ['create', 'Create account']] as const).map(([m, t]) => (
             <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => switchTo(m)}
-              className={`min-h-[40px] rounded-full text-[15px] font-bold ${mode === m ? 'bg-panel shadow-sm' : 'text-muted'}`}>{t}</button>
+              className={`min-h-[40px] rounded-md text-[15px] font-bold ${mode === m ? 'bg-panel shadow-sm' : 'text-muted'}`}>{t}</button>
           ))}
         </div>
       ) : null}

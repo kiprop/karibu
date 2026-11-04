@@ -28,7 +28,7 @@ export default async function Share({ searchParams }: { searchParams: Promise<{ 
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {WAYS.map((w) => (
-          <Link key={w.title} href={w.href} className={`flex min-h-[170px] flex-col gap-2 rounded-[20px] p-5 text-white ${w.cls}`}>
+          <Link key={w.title} href={w.href} className={`flex min-h-[170px] flex-col gap-2 rounded-2xl p-5 text-white ${w.cls}`}>
             <Icon name={w.icon} size={28} />
             <strong className="font-display text-xl">{w.title}</strong>
             <span className="text-[14px] opacity-95">{w.body}</span>
