@@ -4,6 +4,7 @@ import { q } from '../db/pool.js';
 import { AMENITIES, CATEGORIES, SETTLE_CATEGORIES, SUBTYPES, VISIT_CATEGORIES } from '../lib/categories.js';
 import { HttpError, badRequest, notFound, whatsappUrl } from '../lib/util.js';
 import { understand, type Place } from '../lib/understand.js';
+import { readPublicImage } from '../lib/storage.js';
 
 export const TRAVELLER_TYPES = ['solo', 'couple', 'family', 'friends', 'business', 'long_stay', 'moving_home'] as const;
 
@@ -309,6 +310,15 @@ export async function publicRoutes(app: FastifyInstance) {
     ];
     return { level: r.level, verifiedAt: r.verifiedAt, reverifyDue: r.reverifyDue, checks, documentTypes: (r.documents ?? []).map((d: { type: string }) => d.type) };
   }
+
+  // Public photos: uploaded by businesses or by staff with permission. Names are random, so they can be cached forever.
+  app.get('/media/*', async (req, reply) => {
+    const key = (req.params as { '*': string })['*'];
+    const data = await readPublicImage(key);
+    if (!data) throw notFound();
+    const type = key.endsWith('.png') ? 'image/png' : key.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+    return reply.header('content-type', type).header('cache-control', 'public, max-age=31536000, immutable').send(data);
+  });
 
   app.get('/listings/:slug', async (req) => {
     const { slug } = z.object({ slug: z.string().max(120) }).parse(req.params);

@@ -34,7 +34,7 @@ export function FairCheck({ city, currency, items, initialItem = '', initialAmou
 
   return (
     <section className="card p-5">
-      <h2 className="font-display text-2xl font-extrabold">Is this price fair?</h2>
+      <h2 className="text-[22px] font-semibold tracking-tight">Is this price fair?</h2>
       <p className="mt-1 text-[14px] text-muted">Type what you’re being charged. We compare it with our checked prices and what other travellers paid.</p>
       <form onSubmit={check} className="mt-4 grid gap-3 sm:grid-cols-[2fr_1fr_auto]">
         <div>

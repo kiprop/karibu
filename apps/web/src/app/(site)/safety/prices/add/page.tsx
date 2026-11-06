@@ -1,6 +1,6 @@
 'use client';
 
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { Page as KPage, SideCard, Steps } from '@/components/Page';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -76,34 +76,38 @@ function AddPrice() {
 
   const currency = listing?.currency ?? 'KES';
 
+  const crumbs = listing && listingSlug
+    ? [{ label: 'Explore', href: '/explore' }, { label: listing.title, href: `/listing/${listingSlug}` }, { label: 'I paid this much' }]
+    : [{ label: 'Fair prices', href: `/safety/prices?city=${city}` }, { label: 'I paid this much' }];
+  const aside = (
+    <>
+      <SideCard title="How your price helps">
+        <Steps items={[<>It joins what other travellers paid for the <b>same thing in the same city</b>.</>, <>Once there are enough reports, we show the <b>usual range</b>, leaving out prices flagged as overcharging.</>, <>Prices reported as a rip-off at a listed business are <b>reviewed by our team</b>.</>]} />
+      </SideCard>
+      <SideCard title="Private by default">
+        <p className="text-muted">No account needed. We never show who shared a price.</p>
+      </SideCard>
+    </>
+  );
+
   if (done) {
     return (
-      <div className="container-k flex max-w-2xl flex-col gap-5 py-10">
-        <Breadcrumbs items={[{ label: 'Travel smart', href: '/safety' }, { label: 'Fair prices', href: `/safety/prices?city=${city}` }, { label: 'Thanks' }]} />
-        <div className="flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-full bg-teal text-white"><Icon name="check" strokeWidth={3} /></span><h1 className="font-display text-3xl font-extrabold">Thanks, that helps</h1></div>
-        <p className="text-muted">Your price is now part of what travellers see for {listing ? listing.title : 'this city'}. Here’s how it compares with what we knew before.</p>
+      <KPage crumbs={crumbs} title="Thanks, that helps" desc={`Your price is now part of what travellers see for ${listing ? listing.title : 'this city'}. Here’s how it compares with what we knew before.`} aside={aside}>
         <Verdict r={done} amount={done.amount} reportHref={f.feel === 'ripoff' ? (listingSlug ? `/report?category=overcharged&subject=${encodeURIComponent(listing?.title ?? '')}` : '/report?category=overcharged') : undefined} />
         <div className="flex flex-wrap gap-3">
           <button className="btn-primary" onClick={() => { setDone(null); setF((x) => ({ ...x, item: '', amount: '', unit: '', note: '', feel: '', negotiated: false })); }}>Add another price</button>
           <Link href={`/safety/prices?city=${city}`} className="btn-outline">See prices in {cities.find((c) => c.slug === city)?.name ?? 'this city'}</Link>
           {listingSlug ? <Link href={`/listing/${listingSlug}`} className="btn-ghost">Back to listing</Link> : null}
         </div>
-      </div>
+      </KPage>
     );
   }
 
   return (
-    <form onSubmit={submit} className="container-k flex max-w-2xl flex-col gap-5 py-10">
-      <div>
-        <Breadcrumbs items={listing && listingSlug
-          ? [{ label: listing.city, href: `/explore?city=${city}` }, { label: listing.title, href: `/listing/${listingSlug}` }, { label: 'I paid this much' }]
-          : [{ label: 'Travel smart', href: '/safety' }, { label: 'Fair prices', href: `/safety/prices?city=${city}` }, { label: 'I paid this much' }]} />
-        <h1 className="mt-3 font-display text-3xl font-extrabold">I paid this much</h1>
-        <p className="mt-1 text-muted">Tell the next traveller what you really paid. No account needed, and we never show who you are.</p>
-      </div>
-
+    <KPage crumbs={crumbs} title="I paid this much" desc="Tell the next traveller what you really paid. No account needed, and we never show who you are." aside={aside}>
+    <form onSubmit={submit} className="card flex flex-col gap-5 p-5">
       {listing ? (
-        <div className="rounded-2xl bg-soft p-4"><span className="text-[13px] text-muted">At</span><div className="font-bold">{listing.title}</div><div className="text-[13px] text-muted">{listing.city}</div></div>
+        <div className="rounded-lg bg-soft p-3"><span className="text-[13px] text-muted">At</span><div className="font-bold">{listing.title}</div><div className="text-[13px] text-muted">{listing.city}</div></div>
       ) : (
         <div>
           <label className="label" htmlFor="city">Where?</label>
@@ -173,6 +177,7 @@ function AddPrice() {
       {err ? <p role="alert" className="rounded-xl bg-danger-soft p-3 font-semibold text-danger">{err}</p> : null}
       <button className="btn-primary self-start" disabled={busy}>{busy ? 'Sending…' : 'Share my price'}</button>
     </form>
+    </KPage>
   );
 }
 

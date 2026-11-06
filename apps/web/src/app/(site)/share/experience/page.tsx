@@ -1,6 +1,7 @@
 'use client';
 
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { Page as KPage, SideCard } from '@/components/Page';
+import { Done, Media } from '@/components/bits';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -10,7 +11,7 @@ import { AuthForm } from '@/components/AuthForm';
 import { Icon } from '@/components/Icon';
 import { CATEGORY_SINGULAR, TRAVELLER_TYPE_LABEL, isSettle, type Category } from '@/lib/types';
 
-type L = { id: string; slug: string; title: string; city: string; vendorName: string; category: Category; currency: string; priceUnit: string };
+type L = { id: string; slug: string; title: string; city: string; vendorName: string; category: Category; currency: string; priceUnit: string; photos?: { url: string }[] };
 const GROUP_FOR: Record<Category, string> = {
   stay: 'stay', safari: 'activity', transport: 'transport', guide: 'activity', experience: 'activity', event: 'activity',
   home: 'home', furniture: 'home', home_services: 'services', utilities: 'utilities', grooming: 'grooming',
@@ -67,61 +68,64 @@ function ShareExperience() {
     }
   }
 
+  const base = [{ label: 'Share', href: '/share' }];
   if (loadErr) {
     return (
-      <div className="container-k max-w-xl py-10">
-        <Breadcrumbs items={[{ label: 'Share', href: '/share' }, { label: 'Your experience' }]} />
-        <h1 className="mt-3 font-display text-2xl font-extrabold">Share your experience</h1>
-        <p className="mt-2 text-muted">{loadErr}</p>
-        <Link href="/share#rate" className="btn-primary mt-6">Find a business</Link>
-      </div>
+      <KPage crumbs={[...base, { label: 'Your experience' }]} title="Share your experience" desc={loadErr}>
+        <div><Link href="/share#rate" className="btn-primary">Find a business</Link></div>
+      </KPage>
     );
   }
-  if (!l) return <div className="container-k py-12 text-muted">Loading…</div>;
+  if (!l) return <KPage crumbs={[...base, { label: 'Your experience' }]} title="Share your experience"><p className="text-muted">Loading…</p></KPage>;
 
-  const header = (
-    <div>
-      <Breadcrumbs items={[{ label: 'Share', href: '/share' }, { label: l.title, href: `/listing/${l.slug}` }, { label: 'Your experience' }]} />
-      <h1 className="mt-3 font-display text-3xl font-extrabold">Share your experience</h1>
-      <p className="mt-1 text-muted">{CATEGORY_SINGULAR[l.category]} · {l.city} · {l.vendorName}</p>
-    </div>
+  const crumbs = [...base, { label: l.title, href: `/listing/${l.slug}` }, { label: 'Your experience' }];
+  const aside = (
+    <>
+      <Link href={`/listing/${l.slug}`} className="card group flex flex-col overflow-hidden">
+        <Media category={l.category} photoUrl={l.photos?.[0]?.url} alt={l.title} className="aspect-[16/9]" />
+        <span className="p-4">
+          <strong className="block group-hover:underline">{l.title}</strong>
+          <span className="text-[13px] text-muted">{CATEGORY_SINGULAR[l.category]} · {l.city} · {l.vendorName}</span>
+        </span>
+      </Link>
+      <SideCard title="What makes it useful">
+        <ul className="flex list-disc flex-col gap-1.5 pl-4 text-muted">
+          <li><b className="text-ink">What you paid</b>: it shows next to the business’s own price.</li>
+          <li>Was it as described? On time? Hot water, vehicle condition?</li>
+          <li>How you were treated, and anything the next traveller should know.</li>
+        </ul>
+      </SideCard>
+    </>
   );
 
   if (!me.user) {
     return (
-      <div className="container-k flex max-w-xl flex-col gap-5 py-10">
-        {header}
-        <div className="rounded-2xl bg-soft p-5">
-          <h2 className="text-lg font-extrabold">Sign in to rate</h2>
-          <p className="mt-1 text-[15px]">Ratings need a free account, so every star has a real traveller behind it. We show only your first name.</p>
-          <div className="mt-4"><AuthForm next={`/share/experience?listing=${l.slug}${ref ? `&ref=${ref}` : ''}`} /></div>
+      <KPage crumbs={crumbs} title="Share your experience" desc="Ratings need a free account, so every star has a real traveller behind it. We show only your first name." aside={aside}>
+        <div className="card p-5">
+          <AuthForm next={`/share/experience?listing=${l.slug}${ref ? `&ref=${ref}` : ''}`} />
         </div>
-        <p className="text-[14px]">Only want to share a price? <Link href={`/safety/prices/add?listing=${l.slug}`} className="font-bold text-brand underline">Do that without an account</Link>.</p>
-      </div>
+        <p className="text-[14px]">Only want to share a price? <Link href={`/safety/prices/add?listing=${l.slug}`} className="font-semibold text-brand underline">Do that without an account</Link>.</p>
+      </KPage>
     );
   }
 
   if (done) {
     return (
-      <div className="container-k flex max-w-xl flex-col gap-4 py-10">
-        <Breadcrumbs items={[{ label: 'Share', href: '/share' }, { label: l.title, href: `/listing/${l.slug}` }, { label: 'Thanks' }]} />
-        <span className="grid h-12 w-12 place-items-center rounded-full bg-teal text-white"><Icon name="check" strokeWidth={3} /></span>
-        <h1 className="font-display text-3xl font-extrabold">{done.updated ? 'Your experience is updated' : 'Thanks for sharing'}</h1>
-        <p className="text-muted">
+      <KPage crumbs={crumbs} title={done.updated ? 'Your experience is updated' : 'Thanks for sharing'} aside={aside}>
+        <Done title="It’s on the listing">
           It’s now on {l.title}’s page{done.contacted ? ', marked “Contacted via Karibu” because it matches your enquiry' : ''}. The business can reply, and you can update it any time.
-        </p>
+        </Done>
         <div className="flex flex-wrap gap-3">
           <Link href={`/listing/${l.slug}`} className="btn-primary">See it on the listing</Link>
           <Link href="/share" className="btn-outline">Share something else</Link>
         </div>
-      </div>
+      </KPage>
     );
   }
 
   return (
-    <form onSubmit={submit} className="container-k flex max-w-xl flex-col gap-6 py-10">
-      {header}
-
+    <KPage crumbs={crumbs} title="Share your experience" desc={`${CATEGORY_SINGULAR[l.category]} · ${l.city} · ${l.vendorName}`} aside={aside}>
+    <form onSubmit={submit} className="card flex flex-col gap-6 p-5">
       <fieldset>
         <legend className="label mb-2">Overall rating</legend>
         <div className="flex items-center gap-1">
@@ -160,8 +164,8 @@ function ShareExperience() {
         <input id="vd" type="date" max={today()} className="input" value={visitedOn} onChange={(e) => setVisitedOn(e.target.value)} />
       </div>
 
-      <fieldset className="rounded-2xl border border-line p-4">
-        <legend className="px-1 font-extrabold">What did you pay? (optional)</legend>
+      <fieldset className="rounded-lg border border-line p-4">
+        <legend className="px-1 font-semibold">What did you pay? (optional)</legend>
         <p className="text-[13px] text-muted">The most useful thing you can share. It shows next to the business’s own listed price.</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2"><label className="label" htmlFor="pi">For what</label><input id="pi" maxLength={80} className="input" value={paidItem} onChange={(e) => setPaidItem(e.target.value)} placeholder={l.category === 'stay' ? 'Double room with breakfast' : l.category === 'safari' ? 'Full-day game drive, private' : 'Airport transfer'} /></div>
@@ -190,9 +194,10 @@ function ShareExperience() {
       <button className="btn-primary self-start" disabled={busy}>{busy ? 'Posting…' : 'Post my experience'}</button>
       <p className="text-[13px] text-muted">Posting as {me.user.displayName?.split(' ')[0] || 'Traveller'}. You can set your first name in <Link href="/account" className="underline">your account</Link>.</p>
     </form>
+    </KPage>
   );
 }
 
 export default function Page() {
-  return <Suspense fallback={<div className="container-k py-12 text-muted">Loading…</div>}><ShareExperience /></Suspense>;
+  return <Suspense fallback={null}><ShareExperience /></Suspense>;
 }

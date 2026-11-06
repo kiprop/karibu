@@ -1,4 +1,4 @@
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { Page, SideCard } from '@/components/Page';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { api } from '@/lib/server-api';
@@ -18,12 +18,13 @@ export default async function Shared({ params }: { params: Promise<{ token: stri
   }
   const days = [...new Set(trip.items.map((i) => i.day))];
   return (
-    <div className="container-k max-w-3xl py-10">
-      <Breadcrumbs className="mb-4" items={[{ label: 'Shared trip' }, { label: trip.title }]} />
-      <p className="eyebrow">Shared trip</p>
-      <h1 className="mt-1 font-display text-3xl font-extrabold">{trip.title}</h1>
-      {trip.startsOn ? <p className="mt-1 text-muted">{shortDate(trip.startsOn)}{trip.endsOn ? ` to ${shortDate(trip.endsOn)}` : ''}</p> : null}
-      <div className="mt-6 flex flex-col gap-6">
+    <Page crumbs={[{ label: 'Shared trip' }, { label: trip.title }]} eyebrow="Shared trip" title={trip.title}
+      desc={trip.startsOn ? `${shortDate(trip.startsOn)}${trip.endsOn ? ` to ${shortDate(trip.endsOn)}` : ''}` : undefined}
+      aside={<SideCard title="Plan your own trip">
+        <p className="text-muted">Save verified places, plan by day with a map, and share it like this one. Free.</p>
+        <Link href="/today" className="btn-primary mt-3">Start planning</Link>
+      </SideCard>}>
+      <div className="flex flex-col gap-6">
         {days.map((d) => (
           <section key={d ?? 'none'}>
             <h2 className="eyebrow">{d ? shortDate(d, { weekday: 'long', day: 'numeric', month: 'long' }) : 'Not scheduled yet'}</h2>
@@ -38,7 +39,6 @@ export default async function Shared({ params }: { params: Promise<{ token: stri
           </section>
         ))}
       </div>
-      <Link href="/signin" className="btn-primary mt-8">Plan your own trip free</Link>
-    </div>
+    </Page>
   );
 }

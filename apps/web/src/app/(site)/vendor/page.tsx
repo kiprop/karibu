@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { getMe } from '@/lib/server-api';
 import { Icon } from '@/components/Icon';
+import { Hero } from '@/components/Page';
+import { Media } from '@/components/bits';
 import { Suspense } from 'react';
 import { VendorDashboard } from './VendorDashboard';
 
@@ -12,28 +14,30 @@ export default async function VendorHome() {
   if (me.user) return <Suspense><VendorDashboard /></Suspense>;
   return (
     <div>
-      <section className="bg-gradient-to-b from-brand-soft to-ground">
-        <div className="container-k py-14">
-          <p className="eyebrow text-brand">For camps, drivers, guides and tour operators</p>
-          <h1 className="mt-2 max-w-3xl font-display text-4xl font-extrabold leading-tight sm:text-5xl">Travellers are looking for you. Make it easy to trust you.</h1>
-          <p className="mt-4 max-w-2xl text-lg text-muted">List free. Our team verifies you, then travellers message you directly on WhatsApp. No commission, ever.</p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/signin?for=business&next=/vendor" className="btn-primary">Create your free listing</Link>
-            <Link href="/vendor/plan" className="btn-outline">See plans</Link>
+      <Hero crumbs={[{ label: 'For businesses' }]} eyebrow="For camps, drivers, guides, tour operators and local services"
+        title="Travellers are looking for you. Make it easy to trust you."
+        desc="List free. Our team verifies you, then travellers message you directly on WhatsApp. No commission, ever."
+        picture={
+          <div className="grid grid-cols-2 gap-3">
+            {(['stay', 'safari', 'transport', 'grooming'] as const).map((c) => <Media key={c} category={c} className="aspect-[4/3] rounded-xl" />)}
           </div>
+        }>
+        <div className="flex flex-wrap gap-3">
+          <Link href="/signin?for=business&next=/vendor" className="btn-primary">Create your free listing</Link>
+          <Link href="/vendor/plan" className="btn-outline">See plans</Link>
         </div>
-      </section>
-      <section className="container-k mt-10 grid gap-4 md:grid-cols-4">
+      </Hero>
+      <section className="container-k mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           ['phone', 'Create your account', 'With your business mobile or company email and a password.'],
-          ['plus', 'Add your listing', 'Photos, prices, what’s included and your WhatsApp.'],
+          ['camera', 'Add your listing', 'Your own photos, prices, what’s included and your WhatsApp.'],
           ['shield', 'We verify you', 'Free checks of identity, licence and, for some, a visit.'],
           ['chat', 'Get enquiries', 'Travellers message you directly with a reference code.'],
-        ].map(([icon, t, b]) => (
+        ].map(([icon, t, b], i) => (
           <div key={t} className="card p-5">
-            <Icon name={icon} className="text-brand" size={26} />
-            <h2 className="mt-3 font-extrabold">{t}</h2>
-            <p className="mt-1 text-muted">{b}</p>
+            <span className="grid h-10 w-10 place-items-center rounded-lg bg-brand-soft text-brand"><Icon name={icon} size={20} /></span>
+            <h2 className="mt-3 section-title"><span className="text-muted">{i + 1}.</span> {t}</h2>
+            <p className="mt-1 text-[14.5px] text-muted">{b}</p>
           </div>
         ))}
       </section>

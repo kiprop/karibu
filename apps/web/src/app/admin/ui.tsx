@@ -11,11 +11,11 @@ export class StaffApiError extends Error {
 }
 
 /** Calls the API through the same-origin /api proxy. A lost staff session sends the person back to sign in. */
-export async function api<T = any>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
+export async function api<T = any>(path: string, opts: { method?: string; body?: unknown; form?: FormData } = {}): Promise<T> {
   const res = await fetch(`/api${path}`, {
-    method: opts.method ?? (opts.body !== undefined ? 'POST' : 'GET'),
+    method: opts.method ?? (opts.body !== undefined || opts.form ? 'POST' : 'GET'),
     headers: opts.body !== undefined ? { 'content-type': 'application/json' } : {},
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    body: opts.form ?? (opts.body !== undefined ? JSON.stringify(opts.body) : undefined),
     credentials: 'same-origin',
     cache: 'no-store',
   });

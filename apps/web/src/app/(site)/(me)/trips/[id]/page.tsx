@@ -1,7 +1,7 @@
 'use client';
 
-import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
+import { Area, AreaHead } from '@/components/RailShell';
 import dynamic from 'next/dynamic';
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import { call } from '@/lib/client-api';
@@ -28,6 +28,7 @@ export default function TripPage({ params }: { params: Promise<{ id: string }> }
   const { id } = use(params);
   const [trip, setTrip] = useState<Trip | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
   const [note, setNote] = useState('');
   const [noteDay, setNoteDay] = useState('');
   const [copied, setCopied] = useState(false);
@@ -50,8 +51,9 @@ export default function TripPage({ params }: { params: Promise<{ id: string }> }
     [trip],
   );
 
-  if (error) return <div className="container-k py-12"><h1 className="text-2xl font-extrabold">Trip not available</h1><p className="mt-2 text-muted">{error}</p><Link href="/saved" className="btn-primary mt-4">Back to trips</Link></div>;
-  if (!trip) return <div className="container-k py-12 text-muted">Loading trip…</div>;
+  const crumbs = [{ label: 'My Karibu', href: '/today' }, { label: 'Trips', href: '/trips' }, { label: trip?.title ?? 'Trip' }];
+  if (error) return <Area><AreaHead crumbs={crumbs} title="Trip not available" desc={error} actions={<Link href="/trips" className="btn-primary">Back to trips</Link>} /></Area>;
+  if (!trip) return <Area><AreaHead crumbs={crumbs} title="Loading trip…" /></Area>;
 
   async function patch(body: object) {
     await call(`/me/trips/${id}`, { method: 'PATCH', body }).catch((e) => setError(e.message));
@@ -76,7 +78,6 @@ export default function TripPage({ params }: { params: Promise<{ id: string }> }
     const r = await call<{ shareToken: string | null }>(`/me/trips/${id}/share`, { body: { enabled: !trip!.shareToken } });
     setTrip({ ...trip!, shareToken: r.shareToken });
   }
-  const [inviteCopied, setInviteCopied] = useState(false);
   async function toggleInvite() {
     const r = await call<{ editToken: string | null }>(`/me/trips/${id}/invite`, { body: { enabled: !trip!.editToken } });
     setTrip({ ...trip!, editToken: r.editToken });
@@ -101,31 +102,28 @@ export default function TripPage({ params }: { params: Promise<{ id: string }> }
   async function deleteTrip() {
     if (!confirm('Delete this trip? Saved places are not affected.')) return;
     await call(`/me/trips/${id}`, { method: 'DELETE' });
-    location.href = '/saved';
+    location.href = '/trips';
   }
 
   return (
-    <div className="container-k py-8">
-      <Breadcrumbs items={[{ label: 'Saved and trips', href: '/saved' }, { label: trip.title }]} />
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-extrabold">{trip.title}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[14px]">
+    <Area>
+      <AreaHead crumbs={crumbs} title={trip.title}
+        desc={
+          <span className="mt-1 flex flex-wrap items-center gap-2">
             <label className="sr-only" htmlFor="tr-s">Start date</label>
-            <input id="tr-s" type="date" className="input min-h-[38px] w-auto" defaultValue={trip.startsOn ?? ''} onBlur={(e) => e.target.value !== (trip.startsOn ?? '') && patch({ startsOn: e.target.value || null })} />
-            <span className="text-muted">to</span>
+            <input id="tr-s" type="date" className="input min-h-[36px] w-auto text-[14px]" defaultValue={trip.startsOn ?? ''} onBlur={(e) => e.target.value !== (trip.startsOn ?? '') && patch({ startsOn: e.target.value || null })} />
+            <span>to</span>
             <label className="sr-only" htmlFor="tr-e">End date</label>
-            <input id="tr-e" type="date" className="input min-h-[38px] w-auto" defaultValue={trip.endsOn ?? ''} onBlur={(e) => e.target.value !== (trip.endsOn ?? '') && patch({ endsOn: e.target.value || null })} />
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {trip.isOwner ? <button className="btn-outline" onClick={toggleShare}><Icon name="share" size={18} />{trip.shareToken ? 'Stop sharing' : 'Share read-only link'}</button> : null}
-          {trip.shareToken && trip.isOwner ? <button className="btn-dark" onClick={copyLink}>{copied ? 'Link copied' : 'Copy link'}</button> : null}
-          <Link href="/explore" className="btn-primary"><Icon name="plus" size={18} />Add places</Link>
-        </div>
-      </div>
+            <input id="tr-e" type="date" className="input min-h-[36px] w-auto text-[14px]" defaultValue={trip.endsOn ?? ''} onBlur={(e) => e.target.value !== (trip.endsOn ?? '') && patch({ endsOn: e.target.value || null })} />
+          </span>
+        }
+        actions={<>
+          {trip.isOwner ? <button className="btn-outline h-9 min-h-0 text-[13px]" onClick={toggleShare}><Icon name="share" size={16} />{trip.shareToken ? 'Stop sharing' : 'Share read-only link'}</button> : null}
+          {trip.shareToken && trip.isOwner ? <button className="btn-dark h-9 min-h-0 text-[13px]" onClick={copyLink}>{copied ? 'Link copied' : 'Copy link'}</button> : null}
+          <Link href="/explore" className="btn-primary h-9 min-h-0 text-[13px]"><Icon name="plus" size={16} />Add places</Link>
+        </>} />
 
-      <section aria-label="Plan together" className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3">
+      <section aria-label="Plan together" className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3">
         <Icon name="people" size={18} className="text-brand" />
         <span className="min-w-0 flex-1 text-[14px]">
           <b>Plan together.</b>{' '}
@@ -141,7 +139,7 @@ export default function TripPage({ params }: { params: Promise<{ id: string }> }
         ) : null}
       </section>
 
-      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="flex flex-col gap-6">
           {groups.map((g) => (
             <section key={g.day ?? 'none'} aria-label={g.day ? shortDate(g.day) : 'Unscheduled'}>
@@ -189,10 +187,10 @@ export default function TripPage({ params }: { params: Promise<{ id: string }> }
           </form>
           {trip.isOwner ? <button onClick={deleteTrip} className="self-start text-[14px] font-bold text-danger">Delete trip</button> : null}
         </div>
-        <div className="lg:sticky lg:top-24 lg:self-start">
+        <div className="xl:sticky xl:top-20">
           {points.length ? <MapView points={points} height={420} route /> : <div className="card p-6 text-muted">Places you add appear on the map.</div>}
         </div>
       </div>
-    </div>
+    </Area>
   );
 }

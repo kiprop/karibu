@@ -28,7 +28,7 @@ export function Verdict({ r, amount, reportHref }: { r: FairResult; amount: numb
   const range = r.typicalLow != null && r.typicalHigh != null ? `${n(r.typicalLow)}–${r.typicalHigh.toLocaleString()}` : null;
   return (
     <div className={`rounded-2xl p-4 ${s.cls}`} role="status">
-      <div className="flex items-center gap-2 font-display text-xl font-extrabold"><Icon name={s.icon} size={20} />{s.title}</div>
+      <div className="flex items-center gap-2 section-title"><Icon name={s.icon} size={20} />{s.title}</div>
       {r.verdict === 'unknown' ? (
         <p className="mt-1 text-[15px] text-ink">We don’t have enough checked prices or traveller reports for that item here yet. Ask a local what they pay, and add yours so the next traveller knows.</p>
       ) : (

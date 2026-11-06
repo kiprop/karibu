@@ -99,7 +99,7 @@ function Facts({ l }: { l: ListingDetail }) {
   if (!rows.length) return null;
   return (
     <section id="facts" className="scroll-mt-28">
-      <h2 className="font-display text-xl font-extrabold">Key facts</h2>
+      <h2 className="section-title">Key facts</h2>
       <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
         {rows.map(([k, v]) => (
           <div key={k} className="flex justify-between gap-4 border-b border-line py-2 text-[15px]">
@@ -155,7 +155,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
   ];
 
   return (
-    <div className="container-k py-5">
+    <div className="container-k py-6 sm:py-8">
       <Breadcrumbs items={[
         { label: settle ? 'Settle in' : 'Explore', href: settle ? '/settle' : '/explore' },
         { label: l.city, href: `/explore?city=${l.citySlug}` },
@@ -165,7 +165,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
 
       <header className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 max-w-3xl">
-          <h1 className="font-display text-3xl font-extrabold leading-tight sm:text-4xl">{l.title}</h1>
+          <h1 className="page-title">{l.title}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[15px]">
             <a href="#experiences" className="hover:underline"><Stars rating={l.rating} count={l.reviewCount} size={16} /></a>
             {pct != null && l.recommendAnswers >= 2 ? <span className="font-bold text-teal">{pct}% recommend</span> : null}
@@ -199,7 +199,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
             {l.description ? <p className="mt-3 whitespace-pre-line leading-relaxed text-muted">{l.description}</p> : null}
             {l.highlights.length ? (
               <div className="mt-6">
-                <h2 className="font-display text-xl font-extrabold">Why {who} like it</h2>
+                <h2 className="section-title">Why {who} like it</h2>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   {l.highlights.map((h) => (
                     <figure key={h.id} className="rounded-2xl bg-soft p-4">
@@ -242,7 +242,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
           <Facts l={l} />
           {l.amenities.length ? (
             <section>
-              <h2 className="font-display text-xl font-extrabold">{settle ? 'Good to know' : 'What’s included'}</h2>
+              <h2 className="section-title">{settle ? 'Good to know' : 'What’s included'}</h2>
               <ul className="mt-3 flex flex-wrap gap-2">
                 {l.amenities.map((a) => (
                   <li key={a} className="chip bg-soft px-3 py-1 text-[13px] text-ink"><Icon name="check" size={13} strokeWidth={3} className="text-teal" />{AMENITY_LABEL[a] ?? a}</li>
@@ -252,7 +252,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
           ) : null}
           {l.dates.length ? (
             <section>
-              <h2 className="font-display text-xl font-extrabold">Upcoming dates</h2>
+              <h2 className="section-title">Upcoming dates</h2>
               <ul className="mt-3 flex flex-col gap-2">
                 {l.dates.map((d) => (
                   <li key={d.id} className="flex items-center justify-between rounded-xl border border-line px-4 py-3">
@@ -266,7 +266,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
 
           <section id="paid" className="scroll-mt-28">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-display text-xl font-extrabold">What people paid</h2>
+              <h2 className="section-title">What people paid</h2>
               {l.paid ? (
                 <Link href={`/safety/prices/add?listing=${l.slug}`} className="btn-outline h-10 text-[14px]"><Icon name="tag" size={16} />Add what you paid</Link>
               ) : null}
@@ -301,7 +301,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
           </section>
 
           <section id="location" className="scroll-mt-28">
-            <h2 className="font-display text-xl font-extrabold">Location</h2>
+            <h2 className="section-title">Location</h2>
             <p className="mt-1 text-[14px] text-muted">{l.locationIsPrivate ? 'Approximate area only. The exact address is shared after you message.' : 'Pin set by the business and checked by our team.'}</p>
             <div className="mt-3"><ListingMap lat={l.lat} lon={l.lon} label={l.title} /></div>
           </section>
@@ -342,7 +342,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
 
       {similar.length ? (
         <section className="mt-14">
-          <h2 className="font-display text-2xl font-extrabold">You might also like</h2>
+          <h2 className="text-[22px] font-semibold tracking-tight">You might also like</h2>
           <div className="mt-4 flex snap-x gap-4 overflow-x-auto pb-2">
             {similar.map((s) => <div key={s.id} className="w-[270px] shrink-0 snap-start"><ListingCard l={s} /></div>)}
           </div>

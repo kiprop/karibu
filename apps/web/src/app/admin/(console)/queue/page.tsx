@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { shrinkPhoto } from '@/components/PhotoUploader';
 import { Btn, CATEGORY, Card, Empty, ErrorNote, LockedNote, Modal, NoAccess, PageHead, ago, api, useLoad, useStaff, waited, when } from '../../ui';
 
 type Row = { id: string; title: string; category: string; subtype: string; status: string; vendor: string; vendorLevel: number; city: string; minLevel: number; isPrivate: boolean; since: string | null; docsPending: number; level3Approval: string | null; visit: string | null };
@@ -8,7 +9,7 @@ type Detail = {
   listing: Record<string, any>;
   documents: { id: string; docType: string; fileName: string; result: string; uploadedAt: string }[];
   history: { from: string | null; to: string; reason: string | null; at: string; actor: string | null }[];
-  photos: { url: string; alt: string }[];
+  photos: { id: string; url: string; alt: string }[];
   visits: { id: string; status: string; scheduledFor: string; checklist: Record<string, boolean>; notes: string | null; submittedAt: string | null; verifier: string }[];
   approvals: { id: string; kind: string; status: string; reason: string | null; requestedAt: string; requestedBy: string; mine: boolean }[];
 };
@@ -115,7 +116,7 @@ export default function QueuePage() {
                 <p className="footnote" style={{ margin: 0 }}>
                   {l.vendor_name} · {l.subtype}{l.location_is_private ? ' · private home (exact location hidden from travellers)' : ''} · licence {l.licence_number || 'not given'}
                 </p>
-                {d.photos.length ? <div className="row" style={{ flexWrap: 'nowrap', overflowX: 'auto' }}>{d.photos.map((p) => <img key={p.url} src={p.url} alt={p.alt} style={{ height: 76, borderRadius: 4, objectFit: 'cover' }} />)}</div> : null}
+                <StaffPhotos listingId={sel!} photos={d.photos} onChanged={() => loadDetail(sel!)} />
                 <div>
                   <div className="check"><Tick ok={!!l.whatsapp_verified} /><span><b>WhatsApp confirmed</b><span className="s">{l.whatsapp_e164} {l.whatsapp_verified ? 'matches a verified sign-in' : 'not yet confirmed'}</span></span><span className={`chip ${l.whatsapp_verified ? 'ok' : ''}`}>L1</span></div>
                   <div className="check"><Tick ok={!!(l.vendor_email_verified && l.vendor_email_is_company)} /><span><b>Company email</b><span className="s">{l.vendor_email ?? 'none'} {l.vendor_email ? (l.vendor_email_verified ? '· confirmed' : '· not confirmed') : ''}{l.vendor_email && !l.vendor_email_is_company ? ' · free webmail, a weaker signal' : ''}</span></span><span className="chip">Signal</span></div>
@@ -230,5 +231,76 @@ function BookVisit({ listingId, onClose, onDone }: { listingId: string; onClose:
       </div>
       {err ? <p className="err">{err}</p> : null}
     </Modal>
+  );
+}
+
+/**
+ * The photo pilot: our field team photographs a business (or receives its photos) and adds them here,
+ * with the owner's permission on record. Every add and removal is in the audit log.
+ */
+function StaffPhotos({ listingId, photos, onChanged }: { listingId: string; photos: Detail['photos']; onChanged: () => void }) {
+  const { can, toast } = useStaff();
+  const [ok, setOk] = useState(false);
+  const [alt, setAlt] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const allowed = can('businesses.support', 'queue.decide', 'visits.submit');
+  async function add(files: FileList | null) {
+    if (!files?.length) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      for (const f of [...files].slice(0, 10)) {
+        const form = new FormData();
+        form.append('permission', 'yes');
+        form.append('alt', alt);
+        form.append('file', await shrinkPhoto(f), 'photo.jpg');
+        await api(`/admin/listings/${listingId}/photos`, { form });
+      }
+      toast('Photos added');
+      setAlt('');
+      onChanged();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+    setBusy(false);
+  }
+  async function removePhoto(id: string) {
+    try {
+      await api(`/admin/listings/${listingId}/photos/${id}`, { method: 'DELETE' });
+      onChanged();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      <div className="row" style={{ justifyContent: 'space-between' }}><b>Photos</b><span className="footnote" style={{ margin: 0 }}>{photos.length ? `${photos.length} on the listing · the first is the cover` : 'None yet: travellers see a drawn illustration'}</span></div>
+      {photos.length ? (
+        <div className="row" style={{ flexWrap: 'nowrap', overflowX: 'auto' }}>
+          {photos.map((p) => (
+            <span key={p.id} style={{ position: 'relative', flex: 'none' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt={p.alt} style={{ height: 76, width: 100, borderRadius: 4, objectFit: 'cover', display: 'block' }} />
+              {allowed ? <button className="btn" style={{ position: 'absolute', top: 3, right: 3, height: 20, padding: '0 5px', fontSize: 11 }} onClick={() => removePhoto(p.id)} aria-label="Remove photo">✕</button> : null}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {allowed ? (
+        <div className="row" style={{ alignItems: 'flex-start' }}>
+          <label className="row" style={{ gap: 6, fontSize: 13, flex: '1 1 260px' }}>
+            <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} />
+            The business gave permission to use these photos (photo permission on file or signed at the visit)
+          </label>
+          <input className="in" style={{ flex: "1 1 180px", width: "auto" }} placeholder="What they show (optional)" value={alt} onChange={(e) => setAlt(e.target.value)} maxLength={160} />
+          <label className={`btn ${ok ? 'primary' : ''}`} style={{ opacity: ok ? 1 : 0.5, pointerEvents: ok && !busy ? 'auto' : 'none' }}>
+            {busy ? 'Uploading…' : 'Add photos'}
+            <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" disabled={!ok || busy} onChange={(e) => { add(e.target.files); e.target.value = ''; }} />
+          </label>
+        </div>
+      ) : null}
+      {err ? <p className="footnote" style={{ color: 'var(--bad)', margin: 0 }}>{err}</p> : null}
+    </div>
   );
 }

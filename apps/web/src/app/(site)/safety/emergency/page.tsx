@@ -1,7 +1,6 @@
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { Page, SideCard, Steps } from '@/components/Page';
 import Link from 'next/link';
 import { api } from '@/lib/server-api';
-import { Icon } from '@/components/Icon';
 import { shortDate } from '@/lib/format';
 
 export const metadata = { title: 'Emergency card' };
@@ -15,45 +14,43 @@ export default async function Emergency({ searchParams }: { searchParams: Promis
   const embassies = info.contacts.filter((c) => c.kind === 'embassy');
   const hospitals = info.contacts.filter((c) => c.kind === 'hospital');
   return (
-    <div className="container-k max-w-2xl py-10">
-      <Breadcrumbs items={[{ label: 'Travel smart', href: '/safety' }, { label: 'Emergency card' }]} />
-      <h1 className="mt-3 font-display text-3xl font-extrabold">Emergency card · {info.country.name}</h1>
-      {info.advisories.map((a) => <p key={a.id} className="mt-4 rounded-xl bg-amber-soft p-3 text-amber"><strong>Advisory:</strong> {a.message}</p>)}
-      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+    <Page crumbs={[{ label: 'Travel smart', href: '/safety' }, { label: 'Emergency card' }]} title={`Emergency card · ${info.country.name}`}
+      desc="Save this page: it works offline once you’ve opened it."
+      aside={<>
+        <SideCard title="Lost your passport?">
+          <Steps items={['Report it at the nearest police station and ask for a police abstract with the OB number.', 'Contact your embassy or high commission for an emergency travel document.', 'Tell your airline and where you are staying.']} />
+        </SideCard>
+        <SideCard title="Need help, not an emergency?">
+          <p className="text-muted">Overcharged, scammed or something felt wrong? <Link href="/report" className="font-semibold text-brand">Report it</Link> and our team reviews safety reports within 4 hours.</p>
+        </SideCard>
+      </>}>
+      {info.advisories.map((a) => <p key={a.id} className="rounded-xl bg-amber-soft p-3 text-amber"><strong>Advisory:</strong> {a.message}</p>)}
+      <div className="grid gap-3 sm:grid-cols-2">
         {emergency.map((c) => (
-          <div key={c.value} className="rounded-2xl bg-danger p-5 text-white">
-            <div className="text-[13px] font-bold opacity-90">{c.label}</div>
-            <div className="select-all font-display text-5xl font-extrabold">{c.value}</div>
-          </div>
+          <a key={c.value} href={`tel:${c.value}`} className="rounded-xl bg-danger p-5 text-white hover:brightness-95">
+            <div className="text-[13px] font-semibold opacity-90">{c.label}</div>
+            <div className="select-all text-5xl font-semibold tracking-tight">{c.value}</div>
+          </a>
         ))}
       </div>
-      <section className="card mt-6 p-5">
-        <h2 className="text-lg font-extrabold">Lost your passport?</h2>
-        <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-          <li>Report it at the nearest police station and ask for a police abstract with the OB number.</li>
-          <li>Contact your embassy or high commission for an emergency travel document.</li>
-          <li>Tell your airline and where you are staying.</li>
-        </ol>
-      </section>
-      <section className="mt-6">
-        <h2 className="text-lg font-extrabold">Embassies and high commissions</h2>
-        <ul className="mt-2 flex flex-col gap-2">
+      <section className="card">
+        <h2 className="section-title border-b border-line/70 px-5 py-3">Embassies and high commissions</h2>
+        <ul className="divide-y divide-line/70">
           {embassies.map((c) => (
-            <li key={c.label} className="card flex flex-wrap items-center justify-between gap-2 p-4">
-              <span className="font-semibold">{c.label}</span>
-              <a className="font-bold text-brand underline" href={c.value} target="_blank" rel="noopener">Official contact page</a>
-              <span className="w-full text-[12px] text-muted">Reviewed {shortDate(c.lastReviewedOn)}</span>
+            <li key={c.label} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
+              <span className="min-w-0"><span className="block font-semibold">{c.label}</span><span className="text-[12px] text-muted">Reviewed {shortDate(c.lastReviewedOn)}</span></span>
+              <a className="text-[14px] font-semibold text-brand hover:underline" href={c.value} target="_blank" rel="noopener">Official contact page</a>
             </li>
           ))}
-          <li className="text-[14px] text-muted">More embassies are being added. Your own government’s travel advice site lists its embassy in {info.country.name}.</li>
+          <li className="px-5 py-3 text-[13.5px] text-muted">More embassies are being added. Your own government’s travel advice site lists its embassy in {info.country.name}.</li>
         </ul>
       </section>
       {hospitals.length ? (
-        <section className="mt-6">
-          <h2 className="text-lg font-extrabold">24-hour hospitals</h2>
-          <ul className="mt-2 flex flex-col gap-2">{hospitals.map((h) => <li key={h.label} className="card p-4">{h.label} · <span className="select-all">{h.value}</span></li>)}</ul>
+        <section className="card">
+          <h2 className="section-title border-b border-line/70 px-5 py-3">24-hour hospitals</h2>
+          <ul className="divide-y divide-line/70">{hospitals.map((h) => <li key={h.label} className="flex flex-wrap justify-between gap-2 px-5 py-3"><span>{h.label}</span><span className="select-all font-semibold">{h.value}</span></li>)}</ul>
         </section>
       ) : null}
-    </div>
+    </Page>
   );
 }

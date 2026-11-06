@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { Icon } from './Icon';
+import { Breadcrumbs, type Crumb } from './Breadcrumbs';
 
 export type RailItem = { href: string; label: string; icon: string; count?: number | null; hot?: boolean; group?: string; match?: (path: string, view: string | null) => boolean };
 
@@ -66,18 +67,25 @@ export function RailShell({ items, head, children }: { items: RailItem[]; head?:
   );
 }
 
-/** Page header inside a signed-in area: small breadcrumb line, title, description, actions. */
-export function AreaHead({ crumb, title, desc, actions }: { crumb?: string; title: React.ReactNode; desc?: React.ReactNode; actions?: React.ReactNode }) {
+/** Page header inside a signed-in area: breadcrumbs from Home, title, description, actions. Same shape as the public PageHeader. */
+export function AreaHead({ crumbs, title, desc, actions }: { crumbs: Crumb[]; title: React.ReactNode; desc?: React.ReactNode; actions?: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div className="min-w-0">
-        {crumb ? <div className="text-[12.5px] text-muted">{crumb}</div> : null}
-        <h1 className="mt-0.5 text-[22px] font-semibold tracking-tight">{title}</h1>
-        {desc ? <p className="mt-1 max-w-[70ch] text-[14px] text-muted">{desc}</p> : null}
+    <header className="flex flex-col gap-3">
+      <Breadcrumbs items={crumbs} />
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0">
+          <h1 className="area-title">{title}</h1>
+          {desc ? <p className="mt-1 max-w-[70ch] text-[14px] text-muted">{desc}</p> : null}
+        </div>
+        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
-      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
-    </div>
+    </header>
   );
+}
+
+/** The body of every page inside a signed-in area: same padding and maximum width everywhere. */
+export function Area({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`flex w-full max-w-[1180px] flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8 ${className}`}>{children}</div>;
 }
 
 /** A dense panel with an optional header row, like the console's cards. */

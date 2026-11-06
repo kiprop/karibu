@@ -6,6 +6,15 @@ export type Lang = 'en' | 'sw';
 export const LANG_COOKIE = 'kb_lang';
 
 const sw: Record<string, string> = {
+  Travellers: 'Wasafiri',
+  Businesses: 'Biashara',
+  Plans: 'Mipango ya bei',
+  'How we verify': 'Jinsi tunavyothibitisha',
+  'Recommend a business': 'Pendekeza biashara',
+  'Report a problem': 'Ripoti tatizo',
+  'Local guides': 'Waongozaji wa ndani',
+  Experiences: 'Shughuli',
+  Events: 'Matukio',
   Explore: 'Gundua',
   'Settle in': 'Kuhamia',
   'Fair prices': 'Bei halali',

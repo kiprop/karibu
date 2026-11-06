@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { call } from '@/lib/client-api';
 import { loadProfile, localChecklist, profileQuery, saveProfile, type Profile } from '@/lib/companion';
 import { useSession } from '@/components/Session';
-import { AreaHead, Panel } from '@/components/RailShell';
+import { Area, AreaHead, Panel } from '@/components/RailShell';
 import { CompanionSetup } from '@/components/CompanionSetup';
 import { Suggestions } from '@/components/Suggestions';
 import { Icon } from '@/components/Icon';
@@ -73,8 +73,8 @@ export default function TodayPage() {
   const dial = (v: string) => v.replace(/\s/g, '');
 
   return (
-    <div className="flex flex-col gap-5 px-4 py-6 sm:px-6">
-      <AreaHead crumb={`Today · ${day(c.today)}`} title={h.t} desc={h.s}
+    <Area>
+      <AreaHead crumbs={[{ label: 'My Karibu', href: '/today' }, { label: `Today, ${day(c.today)}` }]} title={h.t} desc={h.s}
         actions={!editing ? <button className="btn-outline h-9 min-h-0 text-[13px]" onClick={() => setEditing(true)}><Icon name="cal" size={15} />{p.arrivingOn || p.mode ? 'Edit trip details' : 'Add trip details'}</button> : null} />
 
       {editing ? (
@@ -205,6 +205,6 @@ export default function TodayPage() {
           </Panel>
         </div>
       </div>
-    </div>
+    </Area>
   );
 }

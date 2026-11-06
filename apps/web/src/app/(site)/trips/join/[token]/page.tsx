@@ -1,5 +1,7 @@
 'use client';
 
+import { Centered } from '@/components/Page';
+
 import Link from 'next/link';
 import { use, useEffect, useState } from 'react';
 import { call } from '@/lib/client-api';
@@ -24,11 +26,12 @@ export default function JoinTrip({ params }: { params: Promise<{ token: string }
     }
   }
   return (
-    <div className="container-k flex max-w-lg flex-col gap-4 py-14">
+    <Centered crumbs={[{ label: 'Trips', href: '/trips' }, { label: 'Invitation' }]}>
+      <div className="card flex flex-col gap-4 p-6">
       <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand-soft text-brand"><Icon name="people" size={24} /></span>
       {err ? <p className="text-danger">{err}</p> : !trip ? <p className="text-muted">Opening the invitation…</p> : (
         <>
-          <h1 className="font-display text-3xl font-extrabold">Plan “{trip.title}” together</h1>
+          <h1 className="area-title">Plan “{trip.title}” together</h1>
           <p className="text-muted">{trip.ownerName} invited you to add places, days and notes to this trip. You’ll both see every change.</p>
           {me.user ? (
             <button className="btn-primary self-start" onClick={join}>Join the trip</button>
@@ -37,6 +40,7 @@ export default function JoinTrip({ params }: { params: Promise<{ token: string }
           )}
         </>
       )}
-    </div>
+      </div>
+    </Centered>
   );
 }

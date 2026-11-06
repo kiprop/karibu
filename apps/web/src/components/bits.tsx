@@ -1,4 +1,7 @@
-import { CATEGORY_ICON, Icon } from './Icon';
+import { Icon } from './Icon';
+import { Scene } from './Scene';
+import { Photo } from './Photo';
+import { PLACE_PHOTOS, placePhotoPage, placePhotoUrl } from '@/lib/places';
 import { LEVEL_LABEL, type Category } from '@/lib/types';
 
 export function Stars({ rating, count, size = 14 }: { rating: number | null; count: number; size?: number }) {
@@ -29,22 +32,33 @@ export function VerifiedBadge({ level, onMedia = false }: { level: number; onMed
   );
 }
 
-/** Stand-in artwork until vendors upload photos: a colour-coded tile per category. */
-export function Media({ category, photoUrl, alt, className = '', iconSize = 44, children }: { category: Category; photoUrl?: string | null; alt?: string; className?: string; iconSize?: number; children?: React.ReactNode }) {
+/** A listing's picture: the business's own photo, or a drawn scene for its category until they add one. */
+export function Media({ category, photoUrl, alt, className = '', eager = false, children }: { category: Category; photoUrl?: string | null; alt?: string; className?: string; iconSize?: number; eager?: boolean; children?: React.ReactNode }) {
   return (
-    <div className={`relative overflow-hidden ${photoUrl ? 'bg-soft' : `media-${category}`} ${className}`}>
-      {photoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={photoUrl} alt={alt ?? ''} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-      ) : (
-        <>
-          <span aria-hidden="true" className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/20" />
-          <span aria-hidden="true" className="absolute -bottom-10 -left-8 h-32 w-32 rounded-full bg-white/10" />
-          <Icon name={CATEGORY_ICON[category]} size={iconSize} strokeWidth={1.6} className="absolute right-4 top-4 text-white/95" />
-        </>
-      )}
-      <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/25" />
+    <div className={`relative overflow-hidden bg-soft ${className}`}>
+      <Scene category={category} className="absolute inset-0 h-full w-full" />
+      {photoUrl ? <Photo src={photoUrl} alt={alt ?? ''} eager={eager} className="absolute inset-0 h-full w-full object-cover" /> : null}
+      {children ? <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/30 to-transparent" /> : null}
       {children}
+    </div>
+  );
+}
+
+/** A destination photo with its credit, or the drawn scene when we don't have one for that place. */
+export function PlaceImage({ slug, fallback = 'safari', className = '', credit = true, eager = false, width = 1280 }: { slug?: string | null; fallback?: Category; className?: string; credit?: boolean; eager?: boolean; width?: number }) {
+  const p = slug ? PLACE_PHOTOS[slug] : undefined;
+  return (
+    <div className={`relative overflow-hidden bg-soft ${className}`}>
+      <Scene category={fallback} className="absolute inset-0 h-full w-full" />
+      {p ? (
+        <Photo src={placePhotoUrl(p, width)} alt={p.alt} eager={eager} className="absolute inset-0 h-full w-full object-cover">
+          {credit ? (
+            <a href={placePhotoPage(p)} target="_blank" rel="noopener" className="absolute bottom-1.5 right-1.5 rounded bg-black/45 px-1.5 py-0.5 text-[10.5px] text-white/90 hover:bg-black/70">
+              Photo: {p.author}, {p.licence}
+            </a>
+          ) : null}
+        </Photo>
+      ) : null}
     </div>
   );
 }
@@ -56,9 +70,22 @@ export function SampleNote() {
 export function Empty({ title, body, children }: { title: string; body?: string; children?: React.ReactNode }) {
   return (
     <div className="card flex flex-col items-start gap-2 p-6">
-      <h3 className="font-display text-xl font-extrabold">{title}</h3>
+      <h3 className="section-title">{title}</h3>
       {body ? <p className="text-muted">{body}</p> : null}
       {children}
+    </div>
+  );
+}
+
+/** The confirmation shown in place of a form once it's sent: same look on every form. */
+export function Done({ title, children }: { title: string; children?: React.ReactNode }) {
+  return (
+    <div role="status" className="card flex gap-4 p-5">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-teal text-white"><Icon name="check" size={20} strokeWidth={3} /></span>
+      <div className="flex min-w-0 flex-col gap-1.5 text-[14.5px]">
+        <h2 className="section-title">{title}</h2>
+        <div className="text-muted [&_a]:font-semibold [&_a]:text-brand">{children}</div>
+      </div>
     </div>
   );
 }

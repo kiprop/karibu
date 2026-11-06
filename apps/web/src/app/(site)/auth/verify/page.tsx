@@ -1,5 +1,7 @@
 'use client';
 
+import { Centered } from '@/components/Page';
+
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
@@ -19,23 +21,25 @@ function Verify() {
       .then(() => {
         setGuestFavourites([]);
         // Full reload so the header and session state pick up the new cookie.
-        window.location.replace(next && next.startsWith('/') ? next : '/saved');
+        window.location.replace(next && next.startsWith('/') ? next : '/today');
       })
       .catch((e) => setError((e as Error).message));
   }, [token, next]);
 
   return (
-    <div className="container-k max-w-lg py-16">
-      {error || !token ? (
-        <>
-          <h1 className="font-display text-2xl font-extrabold">That link didn’t work</h1>
-          <p className="mt-2 text-muted">{error ?? 'The link is missing its code.'}</p>
-          <Link href="/signin" className="btn-primary mt-6">Get a new link</Link>
-        </>
-      ) : (
-        <p role="status" className="text-lg">Signing you in…</p>
-      )}
-    </div>
+    <Centered crumbs={[{ label: 'Sign in', href: '/signin' }, { label: 'Email link' }]}>
+      <div className="card p-6">
+        {error || !token ? (
+          <>
+            <h1 className="area-title">That link didn’t work</h1>
+            <p className="mt-2 text-muted">{error ?? 'The link is missing its code.'}</p>
+            <Link href="/signin" className="btn-primary mt-5">Sign in another way</Link>
+          </>
+        ) : (
+          <p role="status" className="text-[16px]">Signing you in…</p>
+        )}
+      </div>
+    </Centered>
   );
 }
 

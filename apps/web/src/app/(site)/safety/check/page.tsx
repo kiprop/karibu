@@ -1,6 +1,6 @@
 'use client';
 
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { Page, SideCard } from '@/components/Page';
 import Link from 'next/link';
 import { useState } from 'react';
 import { call } from '@/lib/client-api';
@@ -43,22 +43,34 @@ export default function CheckOperator() {
 
   const s = res ? STYLE[res.result] : null;
   return (
-    <div className="container-k max-w-2xl py-10">
-      <Breadcrumbs items={[{ label: 'Travel smart', href: '/safety' }, { label: 'Check an operator' }]} />
-      <h1 className="mt-3 font-display text-3xl font-extrabold">Check an operator</h1>
-      <p className="mt-2 text-muted">About to pay a safari company, hotel agent or guide? Check them first. Works for any business, including ones we don’t list.</p>
-      <form onSubmit={check} className="mt-6 flex flex-col gap-2">
+    <Page crumbs={[{ label: 'Travel smart', href: '/safety' }, { label: 'Check an operator' }]} title="Check an operator"
+      desc="About to pay a safari company, hotel agent or guide? Check them first. Works for any business, including ones we don’t list."
+      aside={<>
+        <SideCard title="Never pay a personal number" tone="warn">
+          <p className="text-muted">Don’t send mobile money to a personal number for a booking you can’t verify. Real operators give a business till or paybill number and a written confirmation.</p>
+        </SideCard>
+        <SideCard title="Signs of a scam">
+          <ul className="flex list-disc flex-col gap-1 pl-4 text-muted">
+            <li>A price far below everyone else’s</li>
+            <li>Pressure to pay a deposit today</li>
+            <li>No licence number, or one that doesn’t match the name</li>
+            <li>Only reachable on WhatsApp, with no business address</li>
+          </ul>
+          <Link href="/safety/prices" className="mt-2 inline-block font-semibold text-brand">Check what others paid</Link>
+        </SideCard>
+      </>}>
+      <form onSubmit={check} className="card flex flex-col gap-2 p-5">
         <label htmlFor="op" className="label">Business name, phone number or licence number</label>
         <div className="flex gap-2">
           <input id="op" className="input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. Savanna Tours or +254 7…" />
           <button className="btn-dark" disabled={busy}>{busy ? 'Checking…' : 'Check'}</button>
         </div>
       </form>
-      {err ? <p role="alert" className="mt-3 text-danger">{err}</p> : null}
+      {err ? <p role="alert" className="text-danger">{err}</p> : null}
       <div aria-live="polite">
         {res && s ? (
-          <div className={`mt-6 flex flex-col gap-3 rounded-2xl p-5 ${s.box}`}>
-            <h2 className="flex items-center gap-2 text-xl font-extrabold"><Icon name={s.icon} />{s.title}</h2>
+          <div className={`flex flex-col gap-3 rounded-xl p-5 ${s.box}`}>
+            <h2 className="section-title flex items-center gap-2"><Icon name={s.icon} />{s.title}</h2>
             {res.result === 'watchlist' && res.watchlist ? <p><strong>{res.watchlist.name}:</strong> {res.watchlist.reason}</p> : null}
             {res.result === 'verified' ? (
               <ul className="flex flex-col gap-2">
@@ -74,10 +86,6 @@ export default function CheckOperator() {
           </div>
         ) : null}
       </div>
-      <div className="mt-8 flex gap-3 rounded-2xl bg-amber-soft p-4 text-[15px]">
-        <Icon name="cash" className="text-amber" />
-        <span><strong>Never pay a personal mobile money number</strong> for a booking you can’t verify. Real operators give a business till or paybill number and a written confirmation.</span>
-      </div>
-    </div>
+    </Page>
   );
 }

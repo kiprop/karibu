@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { call } from '@/lib/client-api';
 import { loadProfile, localChecklist, profileQuery, saveProfile, setLocalStep, type Profile } from '@/lib/companion';
 import { useSession } from '@/components/Session';
-import { AreaHead, Panel } from '@/components/RailShell';
+import { Area, AreaHead, Panel } from '@/components/RailShell';
 import { Icon } from '@/components/Icon';
 
 type Step = { key: string; group: string; title: string; why: string; action?: { label: string; href: string; external?: boolean }; done: boolean };
@@ -45,8 +45,8 @@ export default function PlanPage() {
   const groups = steps ? [...new Set(steps.map((s) => s.group))] : [];
   const done = steps?.filter((s) => s.done).length ?? 0;
   return (
-    <div className="flex flex-col gap-5 px-4 py-6 sm:px-6">
-      <AreaHead crumb="Companion" title={title || 'Your plan'}
+    <Area>
+      <AreaHead crumbs={[{ label: 'My Karibu', href: '/today' }, { label: 'Your plan' }]} title={title || 'Your plan'}
         desc={p?.mode === 'settle' ? 'A first month back home or in a new city, week by week. Each step links to verified businesses or the official source.' : 'Everything to sort before you fly and in your first hours. Rules link to the official source, never to a copy.'}
         actions={
           <div className="inline-flex rounded-lg bg-soft p-1 text-[13px] font-semibold">
@@ -85,6 +85,6 @@ export default function PlanPage() {
           </ul>
         </Panel>
       ))}
-    </div>
+    </Area>
   );
 }

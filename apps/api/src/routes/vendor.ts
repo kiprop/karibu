@@ -7,7 +7,7 @@ import { syncVendorContacts } from './auth.js';
 import { outbox } from '../lib/notify.js';
 import { isCompanyEmail, sha256 } from '../lib/util.js';
 import { CATEGORIES, PRICE_UNITS, type Category, isValidSubtype, validateAttributes, AMENITIES } from '../lib/categories.js';
-import { savePrivateFile } from '../lib/storage.js';
+import { MEDIA_PREFIX, savePrivateFile, savePublicImage } from '../lib/storage.js';
 import { startCheckout, verifyWebhook } from '../lib/payments.js';
 import { HttpError, badRequest, forbidden, notFound, slugify, randomToken } from '../lib/util.js';
 
@@ -28,6 +28,9 @@ async function myVendor(req: FastifyRequest) {
   return { user: u, vendor: rows[0] };
 }
 
+/** A photo is either one uploaded to Karibu or a link to an https image. */
+const photoUrl = z.string().max(500).refine((u) => u.startsWith(MEDIA_PREFIX) || /^https:\/\//.test(u), 'Use an uploaded photo or an https link');
+
 const listingInput = z.object({
   cityId: z.number().int(),
   category: z.enum(CATEGORIES as [Category, ...Category[]]),
@@ -44,7 +47,7 @@ const listingInput = z.object({
   priceUnit: z.enum(PRICE_UNITS).default('per person'),
   attributes: z.record(z.string(), z.unknown()).default({}),
   amenities: z.array(z.enum(AMENITIES)).max(30).default([]),
-  photos: z.array(z.object({ url: z.string().url().max(500), alt: z.string().max(160).default('') })).max(20).default([]),
+  photos: z.array(z.object({ url: photoUrl, alt: z.string().max(160).default('') })).max(20).default([]),
 });
 
 function checkListing(b: z.infer<typeof listingInput>) {
@@ -266,6 +269,15 @@ export async function vendorRoutes(app: FastifyInstance) {
     if (!own.rows[0]) throw notFound('Listing not found');
     const { rows } = await q(`INSERT INTO event_dates (listing_id, starts_at, ends_at, ticket_url, confirmed_at) VALUES ($1,$2,$3,$4, now()) RETURNING id`, [id, b.startsAt, b.endsAt, b.ticketUrl ?? null]);
     return { date: rows[0] };
+  });
+
+  // ---- Photos (public) ----
+  app.post('/vendor/photos', async (req) => {
+    const { vendor } = await myVendor(req);
+    const file = await req.file();
+    if (!file) throw badRequest('Attach a photo');
+    const url = await savePublicImage(`listings/${vendor.id}`, await file.toBuffer());
+    return { url };
   });
 
   // ---- Documents (private) ----

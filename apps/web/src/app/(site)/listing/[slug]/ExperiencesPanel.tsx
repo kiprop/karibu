@@ -62,7 +62,7 @@ export function ExperiencesPanel(p: Props) {
   return (
     <section id="experiences" className="scroll-mt-28">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h2 className="font-display text-2xl font-extrabold">{p.settle ? 'Experiences' : 'Traveller experiences'}</h2>
+        <h2 className="text-[22px] font-semibold tracking-tight">{p.settle ? 'Experiences' : 'Traveller experiences'}</h2>
         <Link href={`/share/experience?listing=${p.slug}`} className="btn-primary"><Icon name="star" size={18} />Share your experience</Link>
       </div>
 

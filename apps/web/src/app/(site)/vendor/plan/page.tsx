@@ -1,6 +1,7 @@
 'use client';
 
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { Page } from '@/components/Page';
+import { Area, AreaHead } from '@/components/RailShell';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { call } from '@/lib/client-api';
@@ -35,18 +36,23 @@ export default function Plans() {
     }
   }
 
+  const title = 'Plans for businesses';
+  const desc = 'Verification is free on every plan and can’t be bought. Paid plans add listings, tools and labelled visibility. Karibu never takes commission or handles traveller payments.';
+  const Frame = ({ children }: { children: React.ReactNode }) => me.vendors?.length ? (
+    <Area><AreaHead crumbs={[{ label: 'My business', href: '/vendor' }, { label: 'Plans' }]} title={title} desc={desc} />{children}</Area>
+  ) : (
+    <Page crumbs={[{ label: 'For businesses', href: '/vendor' }, { label: 'Plans' }]} title={title} desc={desc}>{children}</Page>
+  );
+
   return (
-    <div className="container-k py-10">
-      <Breadcrumbs items={[{ label: me.vendors?.length ? 'My business' : 'For businesses', href: '/vendor' }, { label: 'Plans' }]} />
-      <h1 className="mt-3 font-display text-4xl font-extrabold">Plans for businesses</h1>
-      <p className="mt-2 max-w-2xl text-muted">Verification is free on every plan and can’t be bought. Paid plans add listings, tools and labelled visibility. Karibu never takes commission or handles traveller payments.</p>
-      {early ? <p className="mt-4 inline-flex rounded-xl bg-teal-soft px-3 py-2 font-semibold text-teal">All plans are free during early access.</p> : null}
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
+    <Frame>
+      {early ? <p className="inline-flex self-start rounded-lg bg-teal-soft px-3 py-2 text-[14px] font-semibold text-teal">All plans are free during early access.</p> : null}
+      <div className="grid gap-4 md:grid-cols-3">
         {plans.map((p) => (
           <section key={p.code} className={`card flex flex-col gap-3 p-6 ${p.code === 'pro' ? 'border-brand ring-1 ring-brand' : ''}`}>
             {p.code === 'pro' ? <span className="chip self-start bg-brand-soft text-brand">Most popular</span> : null}
-            <h2 className="font-display text-2xl font-extrabold">{p.name}</h2>
-            <div><span className="text-4xl font-extrabold">${p.monthlyUsd}</span> <span className="text-muted">{p.monthlyUsd ? 'per month' : 'forever'}</span></div>
+            <h2 className="text-[22px] font-semibold tracking-tight">{p.name}</h2>
+            <div><span className="text-4xl font-semibold tracking-tight">${p.monthlyUsd}</span> <span className="text-muted">{p.monthlyUsd ? 'per month' : 'forever'}</span></div>
             <ul className="flex flex-col gap-1.5 text-[15px]">
               {p.features.map((f) => <li key={f} className="flex gap-2"><Icon name="check" size={18} className="mt-0.5 text-teal" strokeWidth={3} />{f}</li>)}
             </ul>
@@ -60,8 +66,8 @@ export default function Plans() {
           </section>
         ))}
       </div>
-      {msg ? <p role="status" className="mt-6 font-semibold">{msg}</p> : null}
-      <p className="mt-8 text-[14px] text-muted">Local currency prices are set per country. Payments for plans go through a licensed payment provider by card or mobile money.</p>
-    </div>
+      {msg ? <p role="status" className="font-semibold">{msg}</p> : null}
+      <p className="text-[14px] text-muted">Local currency prices are set per country. Payments for plans go through a licensed payment provider by card or mobile money.</p>
+    </Frame>
   );
 }

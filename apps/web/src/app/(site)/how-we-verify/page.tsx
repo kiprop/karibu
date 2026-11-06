@@ -1,5 +1,5 @@
-import { Breadcrumbs } from '@/components/Breadcrumbs';
 import Link from 'next/link';
+import { Page } from '@/components/Page';
 
 export const metadata = { title: 'How we verify' };
 
@@ -11,27 +11,30 @@ const LEVELS = [
 
 export default function HowWeVerify() {
   return (
-    <div className="container-k max-w-3xl py-10">
-      <Breadcrumbs items={[{ label: 'Travel smart', href: '/safety' }, { label: 'How we verify' }]} />
-      <h1 className="mt-3 font-display text-4xl font-extrabold">How we verify</h1>
-      <p className="mt-3 text-lg">Every business is checked before it appears. Verification is free, and no business can pay to get or keep a badge.</p>
-      <div className="mt-8 grid gap-4">
+    <Page crumbs={[{ label: 'Travel smart', href: '/safety' }, { label: 'How we verify' }]} title="How we verify"
+      desc="Every business is checked before it appears. Verification is free, and no business can pay to get or keep a badge.">
+      <div className="grid gap-4 md:grid-cols-3">
         {LEVELS.map((l) => (
-          <section key={l.level} className="card p-5">
+          <section key={l.level} className="card flex flex-col p-5">
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-teal font-extrabold text-white">{l.level}</span>
-              <h2 className="text-xl font-extrabold">{l.name}</h2>
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-teal text-[14px] font-semibold text-white">{l.level}</span>
+              <h2 className="section-title">{l.name}</h2>
             </div>
-            <ul className="mt-3 list-disc space-y-1 pl-6">{l.checks.map((c) => <li key={c}>{c}</li>)}</ul>
+            <ul className="mt-3 flex flex-col gap-1.5 text-[14px] text-muted">{l.checks.map((c) => <li key={c} className="flex gap-2"><span aria-hidden="true" className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-teal" />{c}</li>)}</ul>
           </section>
         ))}
       </div>
-      <section className="mt-8 space-y-3">
-        <h2 className="font-display text-2xl font-extrabold">Keeping it accurate</h2>
-        <p>Verification lasts 12 months. Businesses confirm their details regularly; a listing not confirmed for 90 days drops lower and shows a notice, and at 180 days it is hidden until confirmed.</p>
-        <p>Reviews come only from travellers who contacted the business through Karibu. Featured placements are paid, always labelled, and still have to be verified.</p>
-        <p>Spot something wrong? <Link className="font-bold text-brand underline" href="/report">Tell us</Link> and we review it within 2 working days.</p>
-      </section>
-    </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="card p-5 text-[14.5px] leading-relaxed">
+          <h2 className="section-title">Keeping it accurate</h2>
+          <p className="mt-2 text-muted">Verification lasts 12 months. Businesses confirm their details regularly. A listing not confirmed for 90 days drops lower and shows a notice, and at 180 days it is hidden until confirmed.</p>
+        </section>
+        <section className="card p-5 text-[14.5px] leading-relaxed">
+          <h2 className="section-title">Reviews and featured places</h2>
+          <p className="mt-2 text-muted">Reviews come only from travellers who contacted the business through Karibu. Featured placements are paid, always labelled, and still have to be verified.</p>
+          <p className="mt-2 text-muted">Spot something wrong? <Link className="font-semibold text-brand underline" href="/report">Tell us</Link> and we review it within 2 working days.</p>
+        </section>
+      </div>
+    </Page>
   );
 }

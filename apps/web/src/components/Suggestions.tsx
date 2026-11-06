@@ -29,7 +29,7 @@ export function Suggestions({ title = 'For you', limit = 6, compact = false }: {
   return (
     <section aria-label={title}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className={compact ? 'text-[14px] font-semibold' : 'font-display text-2xl font-extrabold'}>{title}</h2>
+        <h2 className={compact ? 'text-[14px] font-semibold' : 'text-[22px] font-semibold tracking-tight'}>{title}</h2>
         <span className="text-[12px] text-muted">Each one says why. No paid placement.</span>
       </div>
       <div className={`mt-3 grid gap-3 ${compact ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>

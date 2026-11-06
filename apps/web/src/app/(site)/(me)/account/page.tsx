@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Area, AreaHead, Panel } from '@/components/RailShell';
 import { useEffect, useState } from 'react';
 import { call } from '@/lib/client-api';
 import { useSession } from '@/components/Session';
@@ -31,8 +32,8 @@ function SignInMethods() {
     { m: 'phone', label: 'Mobile', value: s.phone, ok: s.phoneVerified },
   ];
   return (
-    <section className="mt-10 card flex flex-col gap-3 p-5">
-      <h2 className="text-lg font-extrabold">How you sign in</h2>
+    <section className="card flex flex-col gap-3 p-5">
+      <h2 className="section-title">How you sign in</h2>
       <p className="text-[14px] text-muted">One account for travel and business. Add both so you can sign in with either.</p>
       <ul className="divide-y divide-line">
         {rows.map((r) => (
@@ -91,10 +92,10 @@ function PasswordSection() {
     setMsg({ ok: true, t: 'Signed out on every other device.' });
   }
   return (
-    <section className="mt-6 card flex flex-col gap-3 p-5">
+    <section className="card flex flex-col gap-3 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-extrabold">Password</h2>
+          <h2 className="section-title">Password</h2>
           <p className="text-[14px] text-muted">
             {has ? `Set${me.signIn?.passwordChangedAt ? ` ${shortDate(me.signIn.passwordChangedAt)}` : ''}. Sign in with your email or mobile number and this password.` : 'You sign in with one-time links or codes. Add a password to sign in faster.'}
           </p>
@@ -169,13 +170,13 @@ export default function Account() {
     if (me.user) load();
   }, [me.user]);
 
+  const crumbs = [{ label: 'My Karibu', href: '/today' }, { label: 'Account' }];
   if (!me.user) {
     return (
-      <div className="container-k max-w-lg py-12">
-        <h1 className="font-display text-3xl font-extrabold">Your account</h1>
-        <p className="mt-2 text-muted">Sign in to see the businesses you contacted and leave reviews.</p>
-        <Link href="/signin?next=/account" className="btn-primary mt-6">Sign in</Link>
-      </div>
+      <Area>
+        <AreaHead crumbs={crumbs} title="Your account" desc="Sign in to see the businesses you contacted, share your experiences and keep your trips on every device." />
+        <Panel><Link href="/signin?next=/account" className="btn-primary">Sign in or create an account</Link></Panel>
+      </Area>
     );
   }
 
@@ -195,59 +196,55 @@ export default function Account() {
   }
 
   return (
-    <div className="container-k max-w-3xl py-10">
-      <h1 className="font-display text-3xl font-extrabold">Your account</h1>
-      <p className="mt-1 text-muted">{me.user.email ?? me.user.phone}</p>
-
-      <section className="mt-8">
-        <h2 className="font-display text-xl font-extrabold">Businesses you contacted</h2>
-        <p className="mt-1 text-[14px] text-muted">Rate the ones you used. Reviews only come from real enquiries, which keeps them honest.</p>
-        <ul className="mt-4 flex flex-col gap-3">
-          {enq === null ? <li className="text-muted">Loading…</li> : null}
-          {enq?.length === 0 ? <li className="text-muted">None yet. When you message a business from a listing, it appears here.</li> : null}
-          {enq?.map((e) => (
-            <li key={e.id} className="card p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  {e.slug ? <Link href={`/listing/${e.slug}`} className="font-bold hover:underline">{e.title}</Link> : <strong>{e.vendorName}</strong>}
-                  <div className="text-[13px] text-muted">{e.vendorName} · ref <span className="font-mono">{e.refCode}</span> · {shortDate(e.createdAt)}</div>
-                </div>
-                {e.reviewed ? <span className="chip bg-teal-soft text-teal">Shared</span> : e.slug ? <Link className="btn-outline min-h-[38px]" href={`/share/experience?listing=${e.slug}&ref=${e.refCode}`}>Share your experience</Link> : null}
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <SignInMethods />
-      <PasswordSection />
-
-      {me.vendors?.length ? (
-        <section className="mt-10 card flex flex-wrap items-center justify-between gap-3 p-5">
-          <span><span className="block text-lg font-extrabold">Your business{me.vendors.length > 1 ? 'es' : ''}</span><span className="text-muted">{me.vendors.map((v) => v.name).join(', ')}</span></span>
-          <Link href="/vendor" className="btn-dark">Open business tools</Link>
-        </section>
-      ) : (
-        <section className="mt-10 rounded-2xl bg-soft p-5 text-[15px]">
-          Run a camp, a 4x4, a tour or a guiding business? <Link href="/vendor" className="font-bold text-brand underline">List it free</Link> from this same account.
-        </section>
-      )}
-
-      <section className="mt-10 card flex flex-col gap-3 p-5">
-        <h2 className="text-lg font-extrabold">Profile</h2>
-        <form onSubmit={saveName} className="flex flex-wrap items-end gap-2">
-          <div className="min-w-[200px] flex-1">
-            <label className="label" htmlFor="dn">Name shown on reviews (first name only)</label>
-            <input id="dn" className="input" value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} maxLength={80} />
-          </div>
-          <button className="btn-dark">{saved ? 'Saved' : 'Save'}</button>
-        </form>
-      </section>
-
-      <div className="mt-8 flex flex-wrap gap-3">
-        <button className="btn-outline" onClick={signOut}>Sign out</button>
-        <button className="btn-ghost text-danger" onClick={deleteAccount}>Delete my account and data</button>
+    <Area>
+      <AreaHead crumbs={crumbs} title="Your account" desc={me.user.email ?? me.user.phone ?? undefined} />
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex min-w-0 flex-col gap-5">
+          <Panel title="Businesses you contacted" meta="Reviews only come from real enquiries">
+            <ul className="flex flex-col gap-3">
+              {enq === null ? <li className="text-muted">Loading…</li> : null}
+              {enq?.length === 0 ? <li className="text-[14px] text-muted">None yet. When you message a business from a listing, it appears here so you can rate it.</li> : null}
+              {enq?.map((e) => (
+                <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line p-3">
+                  <div className="min-w-0">
+                    {e.slug ? <Link href={`/listing/${e.slug}`} className="font-semibold hover:underline">{e.title}</Link> : <strong>{e.vendorName}</strong>}
+                    <div className="text-[13px] text-muted">{e.vendorName} · ref <span className="font-mono">{e.refCode}</span> · {shortDate(e.createdAt)}</div>
+                  </div>
+                  {e.reviewed ? <span className="chip bg-teal-soft text-teal">Shared</span> : e.slug ? <Link className="btn-outline h-9 min-h-0 text-[13px]" href={`/share/experience?listing=${e.slug}&ref=${e.refCode}`}>Share your experience</Link> : null}
+                </li>
+              ))}
+            </ul>
+          </Panel>
+          <SignInMethods />
+          <PasswordSection />
+        </div>
+        <div className="flex flex-col gap-5">
+          <Panel title="Profile">
+            <form onSubmit={saveName} className="flex flex-col gap-2">
+              <label className="label" htmlFor="dn">Name shown on reviews (first name only)</label>
+              <input id="dn" className="input" value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} maxLength={80} />
+              <button className="btn-dark self-start">{saved ? 'Saved' : 'Save'}</button>
+            </form>
+          </Panel>
+          {me.vendors?.length ? (
+            <Panel title={`Your business${me.vendors.length > 1 ? 'es' : ''}`}>
+              <p className="text-[14px] text-muted">{me.vendors.map((v) => v.name).join(', ')}</p>
+              <Link href="/vendor" className="btn-dark mt-3">Open the business console</Link>
+            </Panel>
+          ) : (
+            <Panel title="Run a business?">
+              <p className="text-[14px] text-muted">A camp, a 4x4, a tour, a salon or a workshop: list it free from this same account.</p>
+              <Link href="/vendor" className="btn-outline mt-3">List your business</Link>
+            </Panel>
+          )}
+          <Panel title="Sign out and privacy">
+            <div className="flex flex-col items-start gap-2">
+              <button className="btn-outline" onClick={signOut}>Sign out</button>
+              <button className="btn-ghost px-0 text-danger" onClick={deleteAccount}>Delete my account and data</button>
+            </div>
+          </Panel>
+        </div>
       </div>
-    </div>
+    </Area>
   );
 }

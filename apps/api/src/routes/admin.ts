@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { q, tx } from '../db/pool.js';
 import { assertInScope, audit, can, isOnlyApprover, requireStaff, scope, type Staff } from '../lib/staff.js';
 import { HttpError, badRequest, forbidden, isCompanyEmail, notFound } from '../lib/util.js';
-import { readPrivateFile } from '../lib/storage.js';
+import { readPrivateFile, savePublicImage } from '../lib/storage.js';
 
 const uuid = z.string().uuid();
 const idParam = z.object({ id: uuid });
@@ -91,6 +91,39 @@ export async function adminRoutes(app: FastifyInstance) {
     return { queue: rows };
   });
 
+  // Photos added by staff for a business (the pilot: field team photographs with the owner's written permission).
+  const PHOTO_PERMS = ['businesses.support', 'queue.decide', 'visits.submit'] as const;
+  app.post('/admin/listings/:id/photos', async (req) => {
+    const s = requireStaff(req, ...PHOTO_PERMS);
+    const { id } = idParam.parse(req.params);
+    const l = await q(`SELECT l.id, l.title, v.country_code FROM listings l JOIN vendors v ON v.id = l.vendor_id WHERE l.id = $1`, [id]);
+    if (!l.rows[0]) throw notFound();
+    assertInScope(s, l.rows[0].country_code);
+    const file = await req.file();
+    if (!file) throw badRequest('Attach a photo');
+    const f = file.fields as Record<string, { value?: string } | undefined>;
+    if (f.permission?.value !== 'yes') throw badRequest('Confirm the business gave permission to use this photo');
+    const alt = String(f.alt?.value ?? '').slice(0, 160);
+    const count = await q(`SELECT count(*)::int AS n FROM listing_photos WHERE listing_id = $1`, [id]);
+    if (count.rows[0].n >= 20) throw badRequest('A listing can have up to 20 photos');
+    const url = await savePublicImage(`listings/staff/${id}`, await file.toBuffer());
+    const { rows } = await q(`INSERT INTO listing_photos (listing_id, url, alt, position) VALUES ($1,$2,$3,$4) RETURNING id, url, alt`, [id, url, alt, count.rows[0].n]);
+    await audit(req, s, 'listing.photo_add', { type: 'listing', id, label: l.rows[0].title }, 'Photo added with the business’s permission', { url });
+    return { photo: rows[0] };
+  });
+
+  app.delete('/admin/listings/:id/photos/:photoId', async (req) => {
+    const s = requireStaff(req, ...PHOTO_PERMS);
+    const { id, photoId } = z.object({ id: z.string().uuid(), photoId: z.string().uuid() }).parse(req.params);
+    const l = await q(`SELECT l.title, v.country_code FROM listings l JOIN vendors v ON v.id = l.vendor_id WHERE l.id = $1`, [id]);
+    if (!l.rows[0]) throw notFound();
+    assertInScope(s, l.rows[0].country_code);
+    const r = await q(`DELETE FROM listing_photos WHERE id = $1 AND listing_id = $2 RETURNING url`, [photoId, id]);
+    if (!r.rows[0]) throw notFound('Photo not found');
+    await audit(req, s, 'listing.photo_remove', { type: 'listing', id, label: l.rows[0].title }, null, { url: r.rows[0].url });
+    return { ok: true };
+  });
+
   app.get('/admin/listings/:id', async (req) => {
     const s = requireStaff(req, 'queue.view', 'reports.view', 'businesses.view', 'visits.view', 'visits.submit');
     const { id } = idParam.parse(req.params);
@@ -113,7 +146,7 @@ export async function adminRoutes(app: FastifyInstance) {
       q(`SELECT e.from_status AS "from", e.to_status AS "to", e.reason, e.created_at AS at, coalesce(sm.display_name, u.display_name) AS actor
            FROM listing_events e LEFT JOIN users u ON u.id = e.actor_id LEFT JOIN staff_members sm ON sm.user_id = e.actor_id
           WHERE e.listing_id = $1 ORDER BY e.id DESC`, [id]),
-      q(`SELECT url, alt FROM listing_photos WHERE listing_id = $1 ORDER BY position`, [id]),
+      q(`SELECT id, url, alt FROM listing_photos WHERE listing_id = $1 ORDER BY position`, [id]),
       q(`SELECT f.id, f.status, f.scheduled_for AS "scheduledFor", f.checklist, f.notes, f.submitted_at AS "submittedAt", f.checked_in_at AS "checkedInAt", m.display_name AS verifier
            FROM field_visits f JOIN staff_members m ON m.id = f.assigned_to WHERE f.listing_id = $1 ORDER BY f.created_at DESC`, [id]),
       q(`SELECT a.id, a.kind, a.status, a.reason, a.requested_at AS "requestedAt", r.display_name AS "requestedBy", a.requested_by = $2 AS mine

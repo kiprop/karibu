@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AreaHead, Panel, Stat } from '@/components/RailShell';
+import { Area, AreaHead, Panel, Stat } from '@/components/RailShell';
+import { Page, SideCard, Steps } from '@/components/Page';
 import { call } from '@/lib/client-api';
 import { Icon } from '@/components/Icon';
 import { CATEGORY_SINGULAR, LEVEL_LABEL, type Category } from '@/lib/types';
@@ -56,9 +57,10 @@ function CreateBusiness({ onDone }: { onDone: () => void }) {
     }
   }
   return (
-    <form onSubmit={submit} className="container-k flex max-w-xl flex-col gap-4 py-10">
-      <h1 className="font-display text-3xl font-extrabold">Tell us about your business</h1>
-      <p className="text-muted">This is what travellers see next to your listings. You can add listings next. Contact details that match how you signed in are verified straight away.</p>
+    <Page crumbs={[{ label: 'For businesses', href: '/vendor' }, { label: 'Your business' }]} title="Tell us about your business"
+      desc="This is what travellers see next to your listings. You can add listings next. Contact details that match how you signed in are verified straight away."
+      aside={<SideCard title="What happens next"><Steps items={[<><b>Add your listings</b>: rooms, drives, rides or services, with photos.</>, <><b>We verify you</b>: contacts first, then licences, then a visit for some categories.</>, <><b>Travellers message you</b> directly on WhatsApp. No commission, ever.</>]} /></SideCard>}>
+    <form onSubmit={submit} className="card flex flex-col gap-4 p-5">
       <div><label className="label" htmlFor="bn">Business name</label><input id="bn" required className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
       <div><label className="label" htmlFor="bw">WhatsApp number travellers should message</label><input id="bw" required type="tel" className="input" value={f.whatsapp} onChange={(e) => setF({ ...f, whatsapp: e.target.value })} /></div>
       <div><label className="label" htmlFor="be">Business email (optional; a company address like bookings@yourcamp.co.ke helps verification)</label><input id="be" type="email" className="input" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
@@ -67,6 +69,7 @@ function CreateBusiness({ onDone }: { onDone: () => void }) {
       <button className="btn-primary self-start">Continue</button>
       {err ? <p role="alert" className="text-danger">{err}</p> : null}
     </form>
+    </Page>
   );
 }
 
@@ -167,11 +170,11 @@ export function VendorDashboard() {
   const cell = (d: number, sl: number) => n(stats?.heat.find((h) => h.dow === d && h.slot === sl)?.n);
 
   const head = (title: string, desc?: string, actions?: React.ReactNode) => (
-    <AreaHead crumb={`${v.name} · business console`} title={title} desc={desc} actions={actions} />
+    <AreaHead crumbs={view === 'overview' ? [{ label: 'My business' }] : [{ label: 'My business', href: '/vendor' }, { label: title }]} title={title} desc={desc} actions={actions} />
   );
 
   return (
-    <div className="flex flex-col gap-5 px-4 py-6 sm:px-6">
+    <Area>
       {v.suspended ? <div role="alert" className="rounded-xl border border-danger bg-danger-soft p-3 text-[14px] text-danger"><b>Your business is suspended.</b> Your listings are hidden. Contact Karibu to resolve this.</div> : null}
 
       {view === 'overview' ? (
@@ -430,7 +433,7 @@ export function VendorDashboard() {
           <PublicPage v={v} onSaved={load} />
         </>
       ) : null}
-    </div>
+    </Area>
   );
 }
 

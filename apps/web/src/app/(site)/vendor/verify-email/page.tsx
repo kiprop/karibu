@@ -1,6 +1,7 @@
 'use client';
 
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { Centered } from '@/components/Page';
+
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
@@ -21,23 +22,24 @@ function Verify() {
   }, [token]);
 
   return (
-    <div className="container-k max-w-lg py-10">
-      <Breadcrumbs className="mb-6" items={[{ label: 'My business', href: '/vendor' }, { label: 'Confirm email' }]} />
+    <Centered crumbs={[{ label: 'My business', href: '/vendor' }, { label: 'Confirm email' }]}>
+      <div className="card p-6">
       {!state ? <p role="status">Confirming…</p> : state.ok ? (
         <>
           <span className="grid h-12 w-12 place-items-center rounded-full bg-teal text-white"><Icon name="check" strokeWidth={3} /></span>
-          <h1 className="mt-4 font-display text-3xl font-extrabold">Email confirmed</h1>
+          <h1 className="mt-4 area-title">Email confirmed</h1>
           <p className="mt-2 text-muted"><strong>{state.email}</strong> is now confirmed as {state.business}’s email on Karibu.</p>
           <Link href="/vendor" className="btn-primary mt-6">Go to your business</Link>
         </>
       ) : (
         <>
-          <h1 className="font-display text-2xl font-extrabold">That link didn’t work</h1>
+          <h1 className="area-title">That link didn’t work</h1>
           <p className="mt-2 text-muted">{state.error}</p>
           <Link href="/vendor" className="btn-primary mt-6">Back to your business</Link>
         </>
       )}
-    </div>
+      </div>
+    </Centered>
   );
 }
 

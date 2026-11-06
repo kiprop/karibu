@@ -44,19 +44,12 @@ h1, h2, h3 { text-wrap: balance; letter-spacing: -0.015em; }
   .pill-on { @apply bg-ink text-ground border-ink; }
   .eyebrow { @apply text-[11.5px] font-semibold uppercase tracking-[0.08em] text-muted; }
   .prose-k p { @apply mb-3 leading-relaxed; }
+  /* One title style per frame: public pages and signed-in areas. */
+  .page-title { @apply text-[28px] font-semibold leading-[1.15] tracking-tight sm:text-[34px]; }
+  .area-title { @apply text-[22px] font-semibold leading-tight tracking-tight sm:text-[24px]; }
+  .section-title { @apply text-[18px] font-semibold tracking-tight; }
 }
 
-.media-stay { background: linear-gradient(135deg, #FF9A3D, #E64B24); }
-.media-safari { background: linear-gradient(135deg, #0A7D70, #6BBF3A); }
-.media-transport { background: linear-gradient(135deg, #0A7D70, #1FA3D6); }
-.media-guide { background: linear-gradient(135deg, #FF5E8A, #FFB347); }
-.media-experience { background: linear-gradient(135deg, #1FA3D6, #8B5CF6); }
-.media-event { background: linear-gradient(135deg, #7B5CFF, #D24BB4); }
 /* Settle in: warmer, homelier tones anchored on the Enkop charcoal and amber. */
-.media-home { background: linear-gradient(135deg, #14181D, #3A4A5C); }
-.media-furniture { background: linear-gradient(135deg, #B4692B, #F0A83C); }
-.media-home_services { background: linear-gradient(135deg, #2F6E5B, #14181D); }
-.media-utilities { background: linear-gradient(135deg, #1F6FD6, #14181D); }
-.media-grooming { background: linear-gradient(135deg, #C2417A, #F0A83C); }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

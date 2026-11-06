@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { call } from '@/lib/client-api';
 import { useSession } from '@/components/Session';
@@ -10,6 +11,7 @@ type Trip = { id: string; title: string; startsOn: string | null; endsOn: string
 
 export function AddToTrip({ listingId }: { listingId: string }) {
   const { me } = useSession();
+  const path = usePathname();
   const [open, setOpen] = useState(false);
   const [trips, setTrips] = useState<Trip[] | null>(null);
   const [tripId, setTripId] = useState('');
@@ -23,7 +25,7 @@ export function AddToTrip({ listingId }: { listingId: string }) {
 
   if (!me.user) {
     return (
-      <Link href={`/signin?next=${encodeURIComponent(typeof window !== 'undefined' ? location.pathname : '/')}`} className="btn-outline" title="Sign in free to plan trips">
+      <Link href={`/signin?next=${encodeURIComponent(path)}`} className="btn-outline" title="Sign in free to plan trips">
         <Icon name="cal" size={18} /> Add to trip
       </Link>
     );

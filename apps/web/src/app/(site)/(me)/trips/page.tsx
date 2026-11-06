@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { call } from '@/lib/client-api';
 import { useSession } from '@/components/Session';
-import { AreaHead, Panel } from '@/components/RailShell';
+import { Area, AreaHead, Panel } from '@/components/RailShell';
 import { Icon } from '@/components/Icon';
 
 type Trip = { id: string; title: string; startsOn: string | null; endsOn: string | null; itemCount: number; shared: boolean; isOwner: boolean; memberCount: number };
@@ -22,15 +22,15 @@ export default function TripsPage() {
 
   if (!me.user) {
     return (
-      <div className="flex flex-col gap-5 px-4 py-6 sm:px-6">
-        <AreaHead crumb="Your things" title="Trips" desc="Plan by day, see it on a map, share a read-only link, or plan together with family." />
+      <Area>
+        <AreaHead crumbs={[{ label: 'My Karibu', href: '/today' }, { label: 'Trips' }]} title="Trips" desc="Plan by day, see it on a map, share a read-only link, or plan together with family." />
         <Panel><p className="text-[14px]"><Link href="/signin?next=/trips" className="font-semibold text-brand">Sign in</Link> to make trips. Things you saved on this device come with you.</p></Panel>
-      </div>
+      </Area>
     );
   }
   return (
-    <div className="flex flex-col gap-5 px-4 py-6 sm:px-6">
-      <AreaHead crumb="Your things" title="Trips" desc="Plan by day, see it on a map, share a read-only link, or invite family to plan with you." />
+    <Area>
+      <AreaHead crumbs={[{ label: 'My Karibu', href: '/today' }, { label: 'Trips' }]} title="Trips" desc="Plan by day, see it on a map, share a read-only link, or invite family to plan with you." />
       <Panel title="New trip">
         <form className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_1fr_1fr_auto] sm:items-end" onSubmit={async (e) => {
           e.preventDefault();
@@ -67,6 +67,6 @@ export default function TripsPage() {
           </ul>
         )}
       </Panel>
-    </div>
+    </Area>
   );
 }

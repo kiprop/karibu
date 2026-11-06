@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import { call } from '@/lib/client-api';
+import { Area } from '@/components/RailShell';
 import { ListingForm, type ListingValues } from '../ListingForm';
 
 export default function EditListing({ params }: { params: Promise<{ id: string }> }) {
@@ -19,7 +20,7 @@ export default function EditListing({ params }: { params: Promise<{ id: string }
       )
       .catch((e) => setErr(e.message));
   }, [id]);
-  if (err) return <div className="container-k py-12 text-danger">{err}</div>;
-  if (!initial) return <div className="container-k py-12 text-muted">Loading…</div>;
+  if (err) return <Area><p className="text-danger">{err}</p></Area>;
+  if (!initial) return <Area><p className="text-muted">Loading…</p></Area>;
   return <ListingForm id={id} initial={initial} />;
 }

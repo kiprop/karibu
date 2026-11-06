@@ -123,7 +123,7 @@ crontab -e
 15 2 * * * cd ~/karibu && docker compose -f docker-compose.prod.yml --env-file .env.production exec -T db pg_dump -U karibu karibu | gzip > ~/backups/karibu-$(date +\%F).sql.gz && find ~/backups -name '*.sql.gz' -mtime +14 -delete
 ```
 
-Copy the backups off the server too (for example to Cloudflare R2 or another cloud bucket). Uploaded business documents are in the `uploads` Docker volume; back that up as well.
+Copy the backups off the server too (for example to Cloudflare R2 or another cloud bucket). Uploaded business documents (private) and listing photos (public, under `uploads/public`) are in the `uploads` Docker volume; back that up as well.
 
 ## Troubleshooting
 
@@ -148,3 +148,11 @@ docker compose -f docker-compose.prod.yml --env-file .env.production restart web
 - Replace or remove the sample businesses, and replace the example price figures with real checks.
 - Switch map tiles to a paid provider (`NEXT_PUBLIC_TILE_URL`); OpenStreetMap's own servers are for light use only.
 - When you outgrow one server, move the database to a managed PostgreSQL with PostGIS and documents to Cloudflare R2. The README's scaling section has the order.
+
+## 9. Photos (pilot)
+
+Businesses add photos from their phone or computer when they create or edit a listing. Photos are shrunk in the browser (long edge 2000 px, JPEG) before upload, checked to really be JPG, PNG or WEBP, and served from `/api/media/…` with long-lived caching.
+
+For the pilot with existing businesses, staff can add photos for them from the staff console: open the listing in the **Verification queue**, tick that the business gave permission, and choose photos. Roles that can do this: business support, verification officers, field verifiers and owners. Every add and removal is in the audit log. Keep the written permission (the `photo_permission` document type) on file.
+
+Listings without photos show a drawn illustration for their category, labelled as an illustration, never a stock photo. Destination pictures (Maasai Mara, Amboseli, Nairobi, Zanzibar) are freely licensed Wikimedia Commons photos, credited on the image; the list is in `apps/web/src/lib/places.ts`.

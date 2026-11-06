@@ -1,4 +1,6 @@
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { PageHeader } from '@/components/Page';
+import { PlaceImage } from '@/components/bits';
+import { PLACE_PHOTOS } from '@/lib/places';
 import Link from 'next/link';
 import { api } from '@/lib/server-api';
 import { AMENITY_LABEL, CATEGORY_LABEL, SETTLE_CATEGORIES, VISIT_CATEGORIES, isSettle, type Category, type ListingCard as L } from '@/lib/types';
@@ -66,27 +68,30 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
   const page = data.page;
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
   const featuredIds = new Set(data.featured.map((f) => f.id));
+  const cityName = sp.city ? cities.cities.find((c) => c.slug === sp.city)?.name ?? null : null;
 
   return (
-    <div className="container-k py-8">
-      {cat || mode === 'settle' || sp.q || sp.city ? (
-        <Breadcrumbs className="mb-4" items={[
-          mode === 'settle' ? { label: 'Settle in', href: '/settle' } : { label: 'Explore', href: '/explore' },
-          ...(sp.city ? [{ label: cities.cities.find((c) => c.slug === sp.city)?.name ?? sp.city, href: qs({}, { city: sp.city, mode: mode === 'settle' ? 'settle' : undefined }) }] : []),
-          { label: cat ? CATEGORY_LABEL[cat] : sp.q ? `“${sp.q}”` : sp.city ? 'Everything' : 'All' },
-        ]} />
-      ) : null}
-      <div role="tablist" aria-label="What are you planning?" className="mb-5 inline-flex rounded-lg bg-soft p-1 text-[14px] font-bold">
-        {([['visit', 'Visiting'], ['settle', 'Staying long or moving home']] as const).map(([m, t]) => (
-          <Link key={m} role="tab" aria-selected={mode === m} href={qs({ ...sp, category: undefined, subtype: undefined, amenities: undefined }, { mode: m === 'settle' ? 'settle' : undefined })}
-            className={`rounded-md px-4 py-1.5 ${mode === m ? 'bg-panel shadow-sm' : 'text-muted'}`}>{t}</Link>
-        ))}
-      </div>
-      <h1 className="font-display text-3xl font-extrabold">{cat ? CATEGORY_LABEL[cat] : sp.q ? `Results for “${sp.q}”` : mode === 'settle' ? 'Settle in' : 'Explore East Africa'}</h1>
-      <p className="mt-1 text-muted">Every listing here was checked by our team before it appeared. {data.total} found{sp.sort === 'distance' && sp.lat ? ', nearest first' : ''}.</p>
+    <div className="container-k flex flex-col gap-5 py-6 sm:py-8">
+      <PageHeader
+        crumbs={[
+          mode === 'settle' ? { label: 'Settle in', href: '/settle' } : { label: 'Explore', href: cat || sp.q || sp.city ? '/explore' : undefined },
+          ...(sp.city ? [{ label: cityName ?? sp.city, href: cat || sp.q ? qs({}, { city: sp.city, mode: mode === 'settle' ? 'settle' : undefined }) : undefined }] : []),
+          ...(cat ? [{ label: CATEGORY_LABEL[cat] }] : sp.q ? [{ label: `“${sp.q}”` }] : []),
+        ]}
+        title={cat ? `${CATEGORY_LABEL[cat]}${cityName ? ` in ${cityName}` : ''}` : sp.q ? `Results for “${sp.q}”` : cityName ? cityName : mode === 'settle' ? 'Settle in' : 'Explore East Africa'}
+        desc={<>Every listing here was checked by our team before it appeared. {data.total} found{sp.sort === 'distance' && sp.lat ? ', nearest first' : ''}.</>}
+        actions={
+          <div role="tablist" aria-label="What are you planning?" className="inline-flex rounded-lg bg-soft p-1 text-[13.5px] font-semibold">
+            {([['visit', 'Visiting'], ['settle', 'Staying long or moving home']] as const).map(([m, t]) => (
+              <Link key={m} role="tab" aria-selected={mode === m} href={qs({ ...sp, category: undefined, subtype: undefined, amenities: undefined }, { mode: m === 'settle' ? 'settle' : undefined })}
+                className={`rounded-md px-3 py-1.5 ${mode === m ? 'bg-panel shadow-sm' : 'text-muted hover:text-ink'}`}>{t}</Link>
+            ))}
+          </div>
+        } />
+      {sp.city && PLACE_PHOTOS[sp.city] && !cat && !sp.q ? <PlaceImage slug={sp.city} width={1600} className="h-40 rounded-xl sm:h-56" /> : null}
 
       {u && u.chips.length ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-panel px-3 py-2.5" aria-label="What we understood">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-panel px-3 py-2.5" aria-label="What we understood">
           <span className="text-[12.5px] font-semibold text-muted">We understood</span>
           {u.chips.filter((c) => c.key !== 'near').map((c) => (
             <Link key={c.key} href={withoutChip(u, c.key)} className="inline-flex items-center gap-1 rounded-md bg-brand-soft px-2 py-1 text-[13px] font-medium text-brand hover:bg-brand/15" aria-label={`Remove ${c.label}`}>
@@ -99,7 +104,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
         </div>
       ) : null}
 
-      <nav aria-label="Categories" className="mt-5 flex gap-2 overflow-x-auto pb-1">
+      <nav aria-label="Categories" className="-mt-1 flex gap-2 overflow-x-auto pb-1">
         <Link href={qs(sp, { category: undefined, subtype: undefined, amenities: undefined, mode: mode === 'settle' ? 'settle' : undefined })} className={`pill ${!cat ? 'pill-on' : ''}`}>All</Link>
         {modeCats.map((c) => (
           <Link key={c} href={qs(sp, { category: c, subtype: undefined, amenities: undefined, mode: undefined })} className={`pill ${cat === c ? 'pill-on' : ''}`} aria-current={cat === c ? 'page' : undefined}>
@@ -108,8 +113,8 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
         ))}
       </nav>
 
-      <div className="mt-6 grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <form action="/explore" className="card flex h-fit flex-col gap-4 p-4" aria-label="Filters">
+      <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <form id="filters" action="/explore" className="card order-2 flex h-fit scroll-mt-20 flex-col gap-4 p-4 lg:order-none" aria-label="Filters">
           {cat ? <input type="hidden" name="category" value={cat} /> : null}
           {!cat && mode === 'settle' ? <input type="hidden" name="mode" value="settle" /> : null}
           <input type="hidden" name="view" value={view} />
@@ -179,7 +184,8 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
           <Link href="/explore" className="text-center text-[14px] font-bold text-muted">Clear filters</Link>
         </form>
 
-        <div className="min-w-0">
+        <div className="order-1 min-w-0 lg:order-none">
+          <a href="#filters" className="btn-outline mb-4 h-9 min-h-0 text-[13px] lg:hidden"><Icon name="filter" size={15} />Filters</a>
           <div className="mb-4 flex justify-end gap-2" role="group" aria-label="View">
             <NearMe base={Object.fromEntries(Object.entries(sp).filter(([k, v]) => v && !['lat', 'lon', 'sort', 'page', 'view'].includes(k))) as Record<string, string>} />
             <Link href={qs(sp, { view: undefined })} className={`pill ${view === 'list' ? 'pill-on' : ''}`}>List</Link>

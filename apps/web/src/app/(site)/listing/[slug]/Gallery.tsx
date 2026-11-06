@@ -25,18 +25,18 @@ export function Gallery({ photos, category, title }: { photos: { url: string; al
 
   if (!photos.length) {
     return (
-      <Media category={category} className="aspect-[16/7] rounded-2xl" iconSize={72}>
-        <span className="absolute bottom-3 left-4 text-[12px] font-semibold text-white/90">Photos coming from the business</span>
+      <Media category={category} className="aspect-[16/9] rounded-xl sm:aspect-[16/7]">
+        <span className="absolute bottom-3 left-3 rounded-md bg-black/55 px-2 py-1 text-[12px] font-medium text-white">Illustration · photos coming from the business</span>
       </Media>
     );
   }
   const shown = photos.slice(0, 5);
   return (
     <>
-      <div className={`grid h-[260px] gap-2 overflow-hidden rounded-2xl sm:h-[400px] ${shown.length >= 3 ? 'grid-cols-4 grid-rows-2' : 'grid-cols-1'}`}>
+      <div className={`grid h-[260px] gap-2 overflow-hidden rounded-xl sm:h-[400px] ${shown.length >= 3 ? 'grid-cols-4 grid-rows-2' : shown.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
         {shown.map((p, i) => (
           <button key={p.url} type="button" onClick={() => setOpen(i)} aria-label={`Open photo ${i + 1} of ${photos.length}: ${p.alt || title}`}
-            className={`relative overflow-hidden bg-soft ${shown.length >= 3 ? (i === 0 ? 'col-span-4 row-span-2 sm:col-span-2' : 'hidden sm:block') : ''}`}>
+            className={`relative overflow-hidden bg-soft ${shown.length >= 3 ? (i === 0 ? 'col-span-4 row-span-2 sm:col-span-2' : 'hidden sm:block') : shown.length === 2 && i === 1 ? 'hidden sm:block' : ''}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.url} alt={p.alt || title} className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.03]" loading={i ? 'lazy' : 'eager'} />
           </button>

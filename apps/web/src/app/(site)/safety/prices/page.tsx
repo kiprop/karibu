@@ -1,4 +1,4 @@
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { Page, SideCard } from '@/components/Page';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { api, ApiError } from '@/lib/server-api';
@@ -41,10 +41,9 @@ export default async function Prices({ searchParams }: { searchParams: Promise<{
   const examples = board.prices.some((p) => p.isExample) || board.community.some((c) => c.hasExamples);
 
   return (
-    <div className="container-k max-w-3xl py-10">
-      <Breadcrumbs items={[{ label: 'Travel smart', href: '/safety' }, { label: 'Fair prices' }]} />
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-        <h1 className="font-display text-3xl font-extrabold">Fair prices in {board.city.name}</h1>
+    <Page crumbs={[{ label: 'Travel smart', href: '/safety' }, { label: 'Fair prices' }]} title={`Fair prices in ${board.city.name}`}
+      desc="Know the going rate before you’re quoted a “mzungu price”. We show what our team checked in person and what travellers say they actually paid. Asking the price first is normal and expected."
+      actions={
         <form className="flex items-center gap-2">
           <label htmlFor="city" className="sr-only">City</label>
           <select id="city" name="city" defaultValue={board.city.slug} className="input h-10 w-auto py-0">
@@ -52,27 +51,34 @@ export default async function Prices({ searchParams }: { searchParams: Promise<{
           </select>
           <button className="btn-outline h-10">Go</button>
         </form>
-      </div>
-      <p className="mt-2 text-muted">
-        Know the going rate before you’re quoted a “mzungu price”. We show what our team checked in person and what travellers say they actually paid. Asking the price first is normal and expected.
-      </p>
+      }
+      aside={<>
+        <Link href={`/safety/prices/add?city=${board.city.slug}`} className="group flex items-center gap-3 rounded-xl border border-brand/30 bg-brand-soft/50 p-4 hover:border-brand">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand text-white"><Icon name="plus" size={20} /></span>
+          <span className="min-w-0">
+            <strong className="block text-[15px] group-hover:underline">I paid this much</strong>
+            <span className="text-[13px] text-muted">A meal, ride, tour or souvenir. 20 seconds, no account needed.</span>
+          </span>
+        </Link>
+        <SideCard title="Avoiding the mzungu price">
+          <ul className="flex list-disc flex-col gap-1.5 pl-4 text-muted">
+            <li>Ask the price before you eat, ride or take the item. Agree it out loud.</li>
+            <li>Small notes help. A large note invites “no change”.</li>
+            <li>A written menu or an app quote is harder to inflate.</li>
+            <li>Market sellers expect bargaining. Starting at about half is normal; staying friendly matters more.</li>
+            <li>Badly overcharged by a business on Karibu? <Link className="font-semibold text-brand" href="/report?category=overcharged">Report it</Link>.</li>
+          </ul>
+        </SideCard>
+      </>}>
       {examples ? (
-        <p className="mt-4 rounded-xl bg-amber-soft p-3 text-[14px] text-amber"><strong>Includes example figures.</strong> Sample prices and reports are here so you can see how this works. They are replaced by real checks and reports before launch.</p>
+        <p className="rounded-xl bg-amber-soft p-3 text-[14px] text-amber"><strong>Includes example figures.</strong> Sample prices and reports are here so you can see how this works. They are replaced by real checks and reports before launch.</p>
       ) : null}
 
-      <div id="check" className="mt-6 scroll-mt-20"><FairCheck city={board.city.slug} currency={cur} items={items} initialItem={qItem?.slice(0, 80)} initialAmount={qAmount?.replace(/\D/g, '').slice(0, 9)} /></div>
+      <div id="check" className="scroll-mt-20"><FairCheck city={board.city.slug} currency={cur} items={items} initialItem={qItem?.slice(0, 80)} initialAmount={qAmount?.replace(/\D/g, '').slice(0, 9)} /></div>
 
-      <Link href={`/safety/prices/add?city=${board.city.slug}`} className="mt-6 flex items-center justify-between gap-4 rounded-2xl p-5 text-white media-stay">
-        <span>
-          <strong className="block font-display text-2xl">I paid this much</strong>
-          <span className="text-[15px] opacity-95">Share what you paid for a meal, ride, tour or souvenir. It takes 20 seconds, no account needed.</span>
-        </span>
-        <Icon name="plus" size={30} />
-      </Link>
-
-      {groups.length ? <h2 className="mt-10 font-display text-2xl font-extrabold">Checked by our team</h2> : null}
+      {groups.length ? <h2 className="section-title -mb-3">Checked by our team</h2> : null}
       {groups.map(({ g, rows }) => (
-        <section key={g} className="mt-4">
+        <section key={g}>
           <h3 className="eyebrow">{g === 'food' ? 'Food and drink' : g === 'transport' ? 'Getting around' : 'Other'}</h3>
           <ul className="card mt-2 divide-y divide-line px-4">
             {rows.map((p) => (
@@ -90,14 +96,16 @@ export default async function Prices({ searchParams }: { searchParams: Promise<{
         </section>
       ))}
 
-      <h2 className="mt-10 font-display text-2xl font-extrabold">What travellers paid</h2>
+      <div className="-mb-2">
+      <h2 className="section-title">What travellers paid</h2>
       <p className="mt-1 text-[14px] text-muted">
         The usual range leaves out prices travellers flagged as overcharging. Ranges need at least {board.minReports} reports; below that we show early reports.
       </p>
+      </div>
       {board.community.length === 0 ? (
-        <p className="mt-4 text-muted">No traveller reports here yet. Be the first.</p>
+        <p className="text-muted">No traveller reports here yet. Be the first.</p>
       ) : (
-        <ul className="card mt-4 divide-y divide-line px-4">
+        <ul className="card divide-y divide-line px-4">
           {board.community.map((c) => {
             const typical = c.typicalReports >= board.minReports && c.p25 != null && c.p75 != null;
             return (
@@ -132,8 +140,8 @@ export default async function Prices({ searchParams }: { searchParams: Promise<{
 
       {board.recent.length ? (
         <>
-          <h2 className="mt-10 font-display text-2xl font-extrabold">Latest reports</h2>
-          <ul className="mt-4 flex flex-col gap-3">
+          <h2 className="section-title -mb-3">Latest reports</h2>
+          <ul className="flex flex-col gap-3">
             {board.recent.map((r) => (
               <li key={r.id} className="card p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -153,16 +161,6 @@ export default async function Prices({ searchParams }: { searchParams: Promise<{
         </>
       ) : null}
 
-      <section className="mt-10 rounded-2xl bg-soft p-5">
-        <h2 className="font-display text-xl font-extrabold">Avoiding the mzungu price</h2>
-        <ul className="mt-2 list-disc pl-5 leading-relaxed">
-          <li>Ask the price before you eat, ride or take the item. Agree it out loud.</li>
-          <li>Small notes help. Paying with a large note invites “no change”.</li>
-          <li>Prices with a written menu or an app quote are harder to inflate.</li>
-          <li>Market sellers expect bargaining. Starting at about half is normal; staying friendly matters more.</li>
-          <li>If you were badly overcharged by a business on Karibu, <Link className="font-bold underline" href="/report?category=overcharged">report it</Link>. Repeated reports affect its listing.</li>
-        </ul>
-      </section>
-    </div>
+    </Page>
   );
 }

@@ -1,6 +1,8 @@
 'use client';
 
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { Area, AreaHead } from '@/components/RailShell';
+import { SideCard } from '@/components/Page';
+import { PhotoUploader } from '@/components/PhotoUploader';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { call } from '@/lib/client-api';
@@ -85,20 +87,20 @@ export function ListingForm({ id, initial }: { id?: string; initial?: ListingVal
     );
   }
 
-  if (!meta) return <div className="container-k py-12 text-muted">Loading…</div>;
+  if (!meta) return <Area><p className="text-muted">Loading…</p></Area>;
   const cat = v.category;
   const languages = (a.guideLanguages ?? a.languages ?? []).join(', ');
 
   return (
-    <form onSubmit={save} className="container-k flex max-w-3xl flex-col gap-6 py-8">
-      <div>
-        <Breadcrumbs items={[{ label: 'My business', href: '/vendor' }, { label: id ? 'Edit listing' : 'New listing' }]} />
-        <h1 className="mt-2 font-display text-3xl font-extrabold">{id ? 'Edit listing' : 'New listing'}</h1>
-        {id ? <p className="mt-1 text-muted">Changes to a live listing go back to our team for a quick check before travellers see them.</p> : null}
-      </div>
+    <Area>
+    <AreaHead crumbs={[{ label: 'My business', href: '/vendor' }, { label: 'Listings', href: '/vendor?view=listings' }, { label: id ? 'Edit listing' : 'New listing' }]}
+      title={id ? 'Edit listing' : 'New listing'}
+      desc={id ? 'Changes to a live listing go back to our team for a quick check before travellers see them.' : 'Save a draft any time. Submit it for review from your listings when it’s ready.'} />
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+    <form onSubmit={save} className="flex min-w-0 flex-col gap-5">
 
       <fieldset className="card flex flex-col gap-3 p-5">
-        <legend className="px-1 text-lg font-extrabold">What are you listing?</legend>
+        <legend className="px-1 section-title">What are you listing?</legend>
         <div className="flex flex-wrap gap-2">
           {(Object.keys(meta.categories) as Category[]).map((c, i) => (
             <label key={c} className={`pill cursor-pointer ${cat === c ? 'pill-on' : ''}`}>
@@ -114,14 +116,21 @@ export function ListingForm({ id, initial }: { id?: string; initial?: ListingVal
       </fieldset>
 
       <fieldset className="card flex flex-col gap-3 p-5">
-        <legend className="px-1 text-lg font-extrabold">Describe it</legend>
+        <legend className="px-1 section-title">Describe it</legend>
         <div><label className="label" htmlFor="t">Title</label><input id="t" required minLength={3} maxLength={120} className="input" value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} placeholder={cat === 'safari' ? 'Full-day Mara game drive, private pop-top' : 'Lakeside tented camp at Naivasha'} /></div>
         <div><label className="label" htmlFor="s">One-line summary ({v.summary.length}/200)</label><input id="s" required minLength={10} maxLength={200} className="input" value={v.summary} onChange={(e) => setV({ ...v, summary: e.target.value })} /></div>
         <div><label className="label" htmlFor="d">Full description</label><textarea id="d" maxLength={5000} className="input min-h-[120px] py-2" value={v.description ?? ''} onChange={(e) => setV({ ...v, description: e.target.value })} /></div>
       </fieldset>
 
       <fieldset className="card flex flex-col gap-3 p-5">
-        <legend className="px-1 text-lg font-extrabold">Key facts travellers compare</legend>
+        <legend className="px-1 section-title">Photos</legend>
+        <PhotoUploader photos={v.photos} onChange={(photos) => setV({ ...v, photos })} max={12}
+          upload={async (blob) => { const f = new FormData(); f.append('file', blob, 'photo.jpg'); const r = await call<{ url: string }>('/vendor/photos', { form: f }); return { url: r.url, alt: '' }; }}
+          note="Use your own photos, or ones you have permission to use. The first photo is the cover in search results. Photos are saved when you save the listing." />
+      </fieldset>
+
+      <fieldset className="card flex flex-col gap-3 p-5">
+        <legend className="px-1 section-title">Key facts travellers compare</legend>
         {cat === 'stay' ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <div><label className="label" htmlFor="bt">Budget tier</label><select id="bt" required className="input" value={v.budgetTier ?? ''} onChange={(e) => setV({ ...v, budgetTier: e.target.value || undefined })}><option value="">Choose</option><option value="budget">Budget</option><option value="mid">Mid-range</option><option value="premium">Premium</option></select></div>
@@ -233,7 +242,7 @@ export function ListingForm({ id, initial }: { id?: string; initial?: ListingVal
       </fieldset>
 
       <fieldset className="card flex flex-col gap-3 p-5">
-        <legend className="px-1 text-lg font-extrabold">Price</legend>
+        <legend className="px-1 section-title">Price</legend>
         <p className="text-[14px] text-muted">Show an honest range in Kenyan shillings. Travellers agree the final price with you directly.</p>
         <div className="grid gap-3 sm:grid-cols-3">
           <div><label className="label" htmlFor="pf">From (KES)</label><input id="pf" type="number" min={0} className="input" value={v.priceFrom ?? ''} onChange={(e) => setV({ ...v, priceFrom: num(e.target.value) })} /></div>
@@ -243,7 +252,7 @@ export function ListingForm({ id, initial }: { id?: string; initial?: ListingVal
       </fieldset>
 
       <fieldset className="card flex flex-col gap-3 p-5">
-        <legend className="px-1 text-lg font-extrabold">Location</legend>
+        <legend className="px-1 section-title">Location</legend>
         <p className="text-[14px] text-muted">Defaults to the centre of {city?.name ?? 'the destination'}. Set the exact spot so travellers see the right distance.</p>
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <div><label className="label" htmlFor="la">Latitude</label><input id="la" type="number" step="0.00001" className="input" value={v.lat ?? city?.lat ?? ''} onChange={(e) => setV({ ...v, lat: num(e.target.value) })} /></div>
@@ -253,17 +262,6 @@ export function ListingForm({ id, initial }: { id?: string; initial?: ListingVal
         <label className="flex items-center gap-2 text-[15px]"><input type="checkbox" className="h-5 w-5" checked={v.locationIsPrivate} onChange={(e) => setV({ ...v, locationIsPrivate: e.target.checked })} />This is my home. Show travellers only the area (needs a visit from our team).</label>
       </fieldset>
 
-      <fieldset className="card flex flex-col gap-3 p-5">
-        <legend className="px-1 text-lg font-extrabold">Photos</legend>
-        <p className="text-[14px] text-muted">Use your own photos, or ones you have permission to use. Paste image links for now; direct upload is coming.</p>
-        {[...v.photos, { url: '', alt: '' }].slice(0, 12).map((p, i) => (
-          <div key={i} className="grid gap-2 sm:grid-cols-[2fr_1fr]">
-            <input aria-label={`Photo ${i + 1} link`} className="input" value={p.url} placeholder="https://…" onChange={(e) => { const ph = [...v.photos]; ph[i] = { ...p, url: e.target.value }; setV({ ...v, photos: ph }); }} />
-            <input aria-label={`Photo ${i + 1} description`} className="input" value={p.alt} placeholder="What it shows" onChange={(e) => { const ph = [...v.photos]; ph[i] = { ...p, alt: e.target.value }; setV({ ...v, photos: ph }); }} />
-          </div>
-        ))}
-      </fieldset>
-
       {err ? <p role="alert" className="rounded-xl bg-danger-soft p-3 font-semibold text-danger">{err}</p> : null}
       <div className="flex gap-3">
         <button className="btn-primary" disabled={busy}>{busy ? 'Saving…' : id ? 'Save changes' : 'Save draft'}</button>
@@ -271,5 +269,19 @@ export function ListingForm({ id, initial }: { id?: string; initial?: ListingVal
       </div>
       <p className="text-[13px] text-muted">After saving, submit the listing for review from your dashboard. We review within 2 working days.</p>
     </form>
+    <aside className="flex flex-col gap-4 xl:sticky xl:top-20">
+      <SideCard title="What travellers look at first">
+        <ul className="flex list-disc flex-col gap-1.5 pl-4 text-muted">
+          <li><b className="text-ink">Real photos.</b> Rooms, bathrooms, vehicles, the view. No stock pictures.</li>
+          <li><b className="text-ink">An honest price</b> with what it includes.</li>
+          <li><b className="text-ink">Key facts</b> they can compare: hot water hours, Wi-Fi speed, pop-top roof.</li>
+        </ul>
+      </SideCard>
+      <SideCard title="Review">
+        <p className="text-muted">Our team checks every new listing and every change within 2 working days. Verification is free.</p>
+      </SideCard>
+    </aside>
+    </div>
+    </Area>
   );
 }

@@ -30,6 +30,7 @@ const paths: Record<string, string> = {
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
   logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
   menu: 'M4 7h16M4 12h16M4 17h16',
+  filter: 'M4 6h16M7 12h10M10 18h4',
   briefcase: 'M3 8h18v12H3zM8 8V5h8v3',
   phone: 'M7 3h10v18H7zM11 18h2',
   upload: 'M12 16V4M7 9l5-5 5 5M5 20h14',
