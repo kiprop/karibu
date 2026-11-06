@@ -17,6 +17,8 @@ import { priceRoutes } from './routes/prices.js';
 import { staffRoutes } from './routes/staff.js';
 import { insightRoutes } from './routes/insights.js';
 import { staffPlugin } from './lib/staff.js';
+import { companionRoutes } from './routes/companion.js';
+import { askRoutes } from './routes/ask.js';
 
 export async function buildApp(opts: { logger?: boolean; rateLimit?: boolean } = {}) {
   const app = Fastify({
@@ -76,6 +78,8 @@ export async function buildApp(opts: { logger?: boolean; rateLimit?: boolean } =
       await v1.register(priceRoutes);
       await v1.register(staffRoutes);
       await v1.register(insightRoutes);
+      await v1.register(companionRoutes);
+      await v1.register(askRoutes);
     },
     { prefix: '/v1' },
   );

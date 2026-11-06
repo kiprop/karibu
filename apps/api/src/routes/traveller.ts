@@ -9,9 +9,16 @@ import { HttpError, badRequest, notFound, randomToken } from '../lib/util.js';
 const uuid = z.string().uuid();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
-async function ownTrip(userId: string, tripId: string) {
-  const { rows } = await q(`SELECT id FROM trips WHERE id = $1 AND owner_id = $2`, [tripId, userId]);
+/** Owners and people who joined with the edit link can change a trip. */
+const CAN_EDIT = `(t.owner_id = $2 OR EXISTS (SELECT 1 FROM trip_members m WHERE m.trip_id = t.id AND m.user_id = $2))`;
+async function editableTrip(userId: string, tripId: string) {
+  const { rows } = await q(`SELECT t.id, t.owner_id = $2 AS owner FROM trips t WHERE t.id = $1 AND ${CAN_EDIT}`, [tripId, userId]);
   if (!rows[0]) throw notFound('Trip not found');
+  return rows[0] as { id: string; owner: boolean };
+}
+async function ownTrip(userId: string, tripId: string) {
+  const t = await editableTrip(userId, tripId);
+  if (!t.owner) throw new HttpError(403, 'Only the person who made this trip can do this', 'forbidden');
 }
 
 export async function travellerRoutes(app: FastifyInstance) {
@@ -67,8 +74,10 @@ export async function travellerRoutes(app: FastifyInstance) {
     const u = requireUser(req);
     const { rows } = await q(
       `SELECT t.id, t.title, t.starts_on AS "startsOn", t.ends_on AS "endsOn", t.share_token IS NOT NULL AS shared,
-              (SELECT count(*) FROM trip_items i WHERE i.trip_id = t.id) AS "itemCount", t.updated_at AS "updatedAt"
-         FROM trips t WHERE t.owner_id = $1 ORDER BY t.starts_on NULLS LAST, t.created_at DESC`,
+              (SELECT count(*) FROM trip_items i WHERE i.trip_id = t.id) AS "itemCount", t.updated_at AS "updatedAt",
+              t.owner_id = $1 AS "isOwner", (SELECT count(*) FROM trip_members m WHERE m.trip_id = t.id) AS "memberCount"
+         FROM trips t WHERE t.owner_id = $1 OR EXISTS (SELECT 1 FROM trip_members m WHERE m.trip_id = t.id AND m.user_id = $1)
+        ORDER BY t.starts_on NULLS LAST, t.created_at DESC`,
       [u.id],
     );
     return { trips: rows };
@@ -89,12 +98,17 @@ export async function travellerRoutes(app: FastifyInstance) {
     const u = requireUser(req);
     const { id } = z.object({ id: uuid }).parse(req.params);
     const t = await q(
-      `SELECT id, title, starts_on AS "startsOn", ends_on AS "endsOn", notes, share_token AS "shareToken" FROM trips WHERE id = $1 AND owner_id = $2`,
+      `SELECT t.id, t.title, t.starts_on AS "startsOn", t.ends_on AS "endsOn", t.notes, t.share_token AS "shareToken",
+              t.owner_id = $2 AS "isOwner", CASE WHEN t.owner_id = $2 THEN t.edit_token END AS "editToken",
+              (SELECT json_agg(json_build_object('id', u.id, 'name', coalesce(u.display_name, split_part(u.email, '@', 1), 'Traveller'), 'owner', u.id = t.owner_id) ORDER BY u.id = t.owner_id DESC)
+                 FROM users u WHERE u.id = t.owner_id OR u.id IN (SELECT user_id FROM trip_members WHERE trip_id = t.id)) AS people
+         FROM trips t WHERE t.id = $1 AND ${CAN_EDIT}`,
       [id, u.id],
     );
     if (!t.rows[0]) throw notFound('Trip not found');
     const items = await q(
       `SELECT ti.id, ti.day, ti.time_label AS "timeLabel", ti.note, ti.position, l.id AS "listingId", l.slug, l.title, l.category,
+              (SELECT coalesce(split_part(a.display_name, ' ', 1), split_part(a.email, '@', 1), 'Someone') FROM users a WHERE a.id = ti.added_by) AS "addedBy",
               c.name AS city, v.whatsapp_e164 AS whatsapp,
               ST_Y(l.location::geometry) AS lat, ST_X(l.location::geometry) AS lon,
               EXISTS (SELECT 1 FROM public_listings pl WHERE pl.id = l.id) AS available
@@ -112,14 +126,14 @@ export async function travellerRoutes(app: FastifyInstance) {
     const b = z
       .object({ title: z.string().trim().min(1).max(100).optional(), startsOn: isoDate.nullable().optional(), endsOn: isoDate.nullable().optional(), notes: z.string().max(4000).nullable().optional() })
       .parse(req.body);
-    await ownTrip(u.id, id);
+    await editableTrip(u.id, id);
     await q(
       `UPDATE trips SET title = coalesce($3, title),
               starts_on = CASE WHEN $4::boolean THEN $5::date ELSE starts_on END,
               ends_on   = CASE WHEN $6::boolean THEN $7::date ELSE ends_on END,
               notes     = CASE WHEN $8::boolean THEN $9 ELSE notes END,
               updated_at = now()
-        WHERE id = $1 AND owner_id = $2`,
+        WHERE id = $1 AND ($2::uuid IS NOT NULL)`,
       [id, u.id, b.title ?? null, b.startsOn !== undefined, b.startsOn ?? null, b.endsOn !== undefined, b.endsOn ?? null, b.notes !== undefined, b.notes ?? null],
     ).catch((e) => {
       if (String(e.message).includes('trips_check')) throw badRequest('The trip must end on or after its start date');
@@ -142,12 +156,12 @@ export async function travellerRoutes(app: FastifyInstance) {
       .object({ listingId: uuid.optional(), day: isoDate.optional(), timeLabel: z.string().max(40).optional(), note: z.string().max(500).optional() })
       .refine((v) => v.listingId || v.note, 'Add a listing or a note')
       .parse(req.body);
-    await ownTrip(u.id, id);
+    await editableTrip(u.id, id);
     const { rows } = await q(
-      `INSERT INTO trip_items (trip_id, listing_id, day, time_label, note, position)
-       VALUES ($1,$2,$3,$4,$5, coalesce((SELECT max(position)+1 FROM trip_items WHERE trip_id = $1 AND day IS NOT DISTINCT FROM $3::date), 0))
+      `INSERT INTO trip_items (trip_id, listing_id, day, time_label, note, position, added_by)
+       VALUES ($1,$2,$3,$4,$5, coalesce((SELECT max(position)+1 FROM trip_items WHERE trip_id = $1 AND day IS NOT DISTINCT FROM $3::date), 0), $6)
        RETURNING id`,
-      [id, b.listingId ?? null, b.day ?? null, b.timeLabel ?? null, b.note ?? null],
+      [id, b.listingId ?? null, b.day ?? null, b.timeLabel ?? null, b.note ?? null, u.id],
     );
     await q('UPDATE trips SET updated_at = now() WHERE id = $1', [id]);
     return { item: rows[0] };
@@ -157,7 +171,7 @@ export async function travellerRoutes(app: FastifyInstance) {
     const u = requireUser(req);
     const { id, itemId } = z.object({ id: uuid, itemId: uuid }).parse(req.params);
     const b = z.object({ day: isoDate.nullable().optional(), timeLabel: z.string().max(40).nullable().optional(), note: z.string().max(500).nullable().optional(), position: z.number().int().min(0).max(1000).optional() }).parse(req.body);
-    await ownTrip(u.id, id);
+    await editableTrip(u.id, id);
     await q(
       `UPDATE trip_items SET
           day = CASE WHEN $3::boolean THEN $4::date ELSE day END,
@@ -173,7 +187,7 @@ export async function travellerRoutes(app: FastifyInstance) {
   app.delete('/me/trips/:id/items/:itemId', async (req) => {
     const u = requireUser(req);
     const { id, itemId } = z.object({ id: uuid, itemId: uuid }).parse(req.params);
-    await ownTrip(u.id, id);
+    await editableTrip(u.id, id);
     await q(`DELETE FROM trip_items WHERE id = $2 AND trip_id = $1`, [id, itemId]);
     return { deleted: true };
   });
@@ -186,6 +200,46 @@ export async function travellerRoutes(app: FastifyInstance) {
     const token = b.enabled ? randomToken(18) : null;
     await q(`UPDATE trips SET share_token = $2 WHERE id = $1`, [id, token]);
     return { shareToken: token };
+  });
+
+  /** Plan together: a link that lets family or friends edit this trip once they sign in. */
+  app.post('/me/trips/:id/invite', async (req) => {
+    const u = requireUser(req);
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const b = z.object({ enabled: z.boolean() }).parse(req.body);
+    await ownTrip(u.id, id);
+    const token = b.enabled ? randomToken(18) : null;
+    await q(`UPDATE trips SET edit_token = $2 WHERE id = $1`, [id, token]);
+    if (!b.enabled) await q(`DELETE FROM trip_members WHERE trip_id = $1`, [id]);
+    return { editToken: token };
+  });
+
+  app.get('/trips/join/:token', async (req) => {
+    const { token } = z.object({ token: z.string().min(10).max(80) }).parse(req.params);
+    const { rows } = await q(
+      `SELECT t.id, t.title, t.starts_on AS "startsOn", t.ends_on AS "endsOn", coalesce(split_part(u.display_name, ' ', 1), 'A traveller') AS "ownerName"
+         FROM trips t JOIN users u ON u.id = t.owner_id WHERE t.edit_token = $1`,
+      [token],
+    );
+    if (!rows[0]) throw notFound('This invitation has been turned off or the link is wrong');
+    return { trip: rows[0] };
+  });
+
+  app.post('/trips/join/:token', async (req) => {
+    const u = requireUser(req);
+    const { token } = z.object({ token: z.string().min(10).max(80) }).parse(req.params);
+    const { rows } = await q(`SELECT id, owner_id FROM trips WHERE edit_token = $1`, [token]);
+    if (!rows[0]) throw notFound('This invitation has been turned off or the link is wrong');
+    if (rows[0].owner_id !== u.id) await q(`INSERT INTO trip_members (trip_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [rows[0].id, u.id]);
+    return { tripId: rows[0].id };
+  });
+
+  app.delete('/me/trips/:id/members/:userId', async (req) => {
+    const u = requireUser(req);
+    const { id, userId } = z.object({ id: uuid, userId: uuid }).parse(req.params);
+    if (userId !== u.id) await ownTrip(u.id, id); // anyone can leave; only the owner removes others
+    await q(`DELETE FROM trip_members WHERE trip_id = $1 AND user_id = $2`, [id, userId]);
+    return { ok: true };
   });
 
   // ---- Reviews: only for a recorded enquiry that belongs to this traveller ----

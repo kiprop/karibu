@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { q } from '../db/pool.js';
 import { AMENITIES, CATEGORIES, SETTLE_CATEGORIES, SUBTYPES, VISIT_CATEGORIES } from '../lib/categories.js';
 import { HttpError, badRequest, notFound, whatsappUrl } from '../lib/util.js';
+import { understand, type Place } from '../lib/understand.js';
 
 export const TRAVELLER_TYPES = ['solo', 'couple', 'family', 'friends', 'business', 'long_stay', 'moving_home'] as const;
 
@@ -46,6 +47,11 @@ const searchQuery = z.object({
   radiusKm: z.coerce.number().min(1).max(500).optional(),
   ids: z.string().max(2000).optional(), // comma-separated listing ids (guest favourites)
   sort: z.enum(['relevance', 'rating', 'price', 'distance', 'newest']).default('relevance'),
+  /** nl=1: read q as plain language ("tented camp in the mara under 20k") and turn it into filters. */
+  nl: z.enum(['0', '1']).optional(),
+  bedrooms: z.coerce.number().int().min(1).max(10).optional(),
+  furnished: z.enum(['furnished', 'unfurnished']).optional(),
+  month: z.coerce.number().int().min(1).max(12).optional(),
   page: z.coerce.number().int().min(1).max(200).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(24),
 });
@@ -78,8 +84,10 @@ export async function publicRoutes(app: FastifyInstance) {
     return { cities: rows };
   });
 
-  app.get('/listings', async (req) => {
-    const f = searchQuery.parse(req.query);
+  type F = z.infer<typeof searchQuery>;
+
+  /** Run one search. `soft` words only help ranking; they never remove results. */
+  async function runSearch(f: F, soft: string | null = null) {
     const where: string[] = [];
     const params: unknown[] = [];
     const p = (v: unknown) => {
@@ -98,6 +106,9 @@ export async function publicRoutes(app: FastifyInstance) {
     }
     if (f.minLevel) where.push(`pl.verification_level >= ${p(f.minLevel)}`);
     if (f.priceMax !== undefined) where.push(`pl.price_from <= ${p(f.priceMax)}`);
+    if (f.bedrooms) where.push(`coalesce((pl.attributes->>'bedrooms')::int, 0) >= ${p(f.bedrooms)}`);
+    if (f.furnished === 'furnished') where.push(`pl.attributes->>'furnished' IN ('furnished','semi')`);
+    if (f.furnished === 'unfurnished') where.push(`pl.attributes->>'furnished' = 'unfurnished'`);
     if (f.amenities) {
       const list = f.amenities.split(',').map((s) => s.trim()).filter(Boolean);
       if (list.some((a) => !(AMENITIES as readonly string[]).includes(a))) throw badRequest('Unknown amenity filter');
@@ -108,7 +119,7 @@ export async function publicRoutes(app: FastifyInstance) {
     if (f.q) {
       tsq = p(f.q);
       // Every word must match, as a prefix ("sofa" finds "sofas") or by English stem ("furnished" finds "furnish").
-      const words = (f.q.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().match(/[a-z0-9]+/g) ?? []).slice(0, 8);
+      const words = (f.q.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().match(/[a-z0-9]+/g) ?? []).slice(0, 8);
       const prefix = words.length ? p(words.map((w) => `${w}:*`).join(' & ')) : null;
       match = prefix
         ? `(to_tsquery('simple', ${prefix}) || websearch_to_tsquery('english', unaccent(${tsq})))`
@@ -116,6 +127,13 @@ export async function publicRoutes(app: FastifyInstance) {
       where.push(`(pl.search_doc @@ ${prefix ? `to_tsquery('simple', ${prefix})` : match} OR pl.search_doc @@ websearch_to_tsquery('english', unaccent(${tsq}))
                   OR pl.title % ${tsq} OR pl.city_name ILIKE '%' || ${tsq} || '%')`);
     }
+    // Leftover words from plain-language search ("quiet", "kilimani") lift matching listings without excluding others.
+    let softRank = '0';
+    if (soft) {
+      const words = (soft.match(/[a-z0-9]+/g) ?? []).filter((w) => w.length > 2).slice(0, 8);
+      if (words.length) softRank = `ts_rank(pl.search_doc, to_tsquery('simple', ${p(words.map((w) => `${w}:*`).join(' | '))})) * 3`;
+    }
+    const monthRank = f.month ? `CASE WHEN pl.attributes->'bestMonths' @> to_jsonb(${p(f.month)}::int) THEN 0.5 ELSE 0 END` : '0';
     let dist = 'NULL::float';
     if (f.lat !== undefined && f.lon !== undefined) {
       const pt = `ST_SetSRID(ST_MakePoint(${p(f.lon)}, ${p(f.lat)}), 4326)::geography`;
@@ -124,11 +142,9 @@ export async function publicRoutes(app: FastifyInstance) {
     } else if (f.sort === 'distance') {
       throw badRequest('Distance sort needs lat and lon');
     }
-    const relevance = tsq
-      ? `ts_rank(pl.search_doc, ${match}) * 2 + similarity(pl.title, ${tsq})`
-      : '0';
+    const relevance = tsq ? `ts_rank(pl.search_doc, ${match}) * 2 + similarity(pl.title, ${tsq})` : '0';
     // Organic score: relevance, verification, freshness and rating. Payment never changes organic order.
-    const score = `(${relevance}) + pl.verification_level * 0.3
+    const score = `(${relevance}) + (${softRank}) + (${monthRank}) + pl.verification_level * 0.3
       + CASE WHEN pl.last_confirmed_at > now() - interval '90 days' THEN 0.3 ELSE 0 END
       + CASE WHEN coalesce(r.review_count,0) >= 3 THEN coalesce(r.rating,0) * 0.1 ELSE 0 END`;
     const order = {
@@ -141,27 +157,157 @@ export async function publicRoutes(app: FastifyInstance) {
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const limit = p(f.pageSize);
     const offset = p((f.page - 1) * f.pageSize);
-    const sql = `
-      SELECT ${CARD_FIELDS}, ${dist} AS "distanceM", count(*) OVER() AS total
-        FROM public_listings pl LEFT JOIN listing_ratings r ON r.listing_id = pl.id
-        ${whereSql}
-        ORDER BY ${order}, pl.id
-        LIMIT ${limit} OFFSET ${offset}`;
-    const { rows } = await q(sql, params);
-    const total = rows[0]?.total ?? 0;
+    const { rows } = await q(
+      `SELECT ${CARD_FIELDS}, ${dist} AS "distanceM", count(*) OVER() AS total
+         FROM public_listings pl LEFT JOIN listing_ratings r ON r.listing_id = pl.id
+         ${whereSql}
+         ORDER BY ${order}, pl.id
+         LIMIT ${limit} OFFSET ${offset}`,
+      params,
+    );
+    const total = Number(rows[0]?.total ?? 0);
     const results = rows.map(({ total: _t, ...r }) => ({ ...r, rating: (r.reviewCount ?? 0) >= 3 ? r.rating : null }));
+    return { total, results };
+  }
+
+  let placeCache: { at: number; places: Place[] } | null = null;
+  async function places() {
+    if (!placeCache || Date.now() - placeCache.at > 5 * 60e3) {
+      const { rows } = await q(`SELECT slug, name, country_code AS country FROM cities`);
+      placeCache = { at: Date.now(), places: rows };
+    }
+    return placeCache.places;
+  }
+
+  /** The URL parameters that reproduce a set of filters, so the page can show and remove each one. */
+  const toParams = (f: Partial<F>) => {
+    const out: Record<string, string> = {};
+    for (const k of ['q', 'country', 'city', 'category', 'mode', 'subtype', 'budget', 'minLevel', 'priceMax', 'amenities', 'bedrooms', 'furnished', 'month'] as const) {
+      const v = f[k];
+      if (v !== undefined && v !== null && v !== '') out[k] = String(v);
+    }
+    return out;
+  };
+
+  app.get('/listings', async (req) => {
+    const f = searchQuery.parse(req.query);
+    const original = f.q;
+    let understood: (ReturnType<typeof understand> & { params: Record<string, string> }) | null = null;
+    let soft: string | null = null;
+
+    if (f.nl === '1' && f.q) {
+      const u = understand(f.q, await places(), { usdToKes: Number(process.env.USD_TO_KES ?? 129) });
+      const uf = u.filters;
+      // Anything the person set explicitly wins over what we read from the words.
+      f.city ??= uf.city;
+      f.category ??= uf.category;
+      f.subtype ??= f.category === uf.category ? uf.subtype : undefined;
+      f.mode ??= uf.mode;
+      f.budget ??= uf.budget;
+      f.priceMax ??= uf.priceMax;
+      f.bedrooms ??= uf.bedrooms;
+      f.furnished ??= uf.furnished;
+      f.month ??= uf.month;
+      if (uf.amenities.length) f.amenities = [...new Set([...(f.amenities ?? '').split(',').filter(Boolean), ...uf.amenities])].join(',');
+      const structured = u.chips.length > 0;
+      // With filters found, leftover words only help ranking. Without, keep a normal text search.
+      f.q = structured ? undefined : u.rest || undefined;
+      soft = structured ? u.rest || null : null;
+      understood = { ...u, params: toParams({ ...f, q: u.rest || undefined }) };
+    }
+
+    const { total, results } = await runSearch(f, soft);
     // Featured: labelled, capped at 2, shown separately from organic results and still verified.
     const featured = f.page === 1 ? results.filter((r) => r.isFeatured).slice(0, 2) : [];
+
+    // No dead ends: when nothing matches, loosen one thing at a time and say which.
+    let relaxed: { without: string; params: Record<string, string>; total: number; results: unknown[] } | null = null;
+    let didYouMean: string | null = null;
+    if (total === 0 && f.page === 1 && !f.ids) {
+      const label = (k: string, fallback: string) => understood?.chips.find((c) => c.key === k || c.key.startsWith(`${k}:`))?.label ?? fallback;
+      const steps: [string, Partial<F>][] = [
+        ...(f.amenities ? [[label('amenity', 'the must-haves'), { amenities: undefined }] as [string, Partial<F>]] : []),
+        ...(f.furnished ? [[label('furnished', 'furnished'), { furnished: undefined }] as [string, Partial<F>]] : []),
+        ...(f.bedrooms ? [[label('bedrooms', `${f.bedrooms}+ bedrooms`), { bedrooms: undefined }] as [string, Partial<F>]] : []),
+        ...(f.priceMax !== undefined ? [[label('priceMax', 'the price limit'), { priceMax: undefined }] as [string, Partial<F>]] : []),
+        ...(f.budget ? [[label('budget', 'the budget'), { budget: undefined }] as [string, Partial<F>]] : []),
+        ...(f.minLevel ? [['the verification level', { minLevel: undefined }] as [string, Partial<F>]] : []),
+        ...(f.subtype ? [[label('category', f.subtype), { subtype: undefined }] as [string, Partial<F>]] : []),
+        ...(f.q ? [[`“${f.q}”`, { q: undefined }] as [string, Partial<F>]] : []),
+        ...(f.city ? [[label('city', 'that place'), { city: undefined }] as [string, Partial<F>]] : []),
+      ];
+      let cur: F = { ...f, page: 1, pageSize: 6 };
+      const dropped: string[] = [];
+      for (const [what, patch] of steps) {
+        cur = { ...cur, ...patch };
+        dropped.push(what);
+        const r = await runSearch(cur, soft);
+        if (r.total > 0) {
+          relaxed = { without: dropped.join(', '), params: toParams(cur), total: r.total, results: r.results };
+          break;
+        }
+      }
+      if (original && !understood?.chips.length) {
+        const dm = await q(
+          `SELECT t FROM (SELECT name AS t, similarity(name, $1) AS s FROM cities UNION ALL SELECT title, similarity(title, $1) FROM public_listings) x
+            WHERE s > 0.3 ORDER BY s DESC LIMIT 1`,
+          [original],
+        );
+        didYouMean = dm.rows[0]?.t ?? null;
+      }
+    }
+
     // Remember what was searched (not who searched) so the team can see demand and gaps.
-    if (f.page === 1 && !f.ids && (f.q || f.city || f.category || f.mode)) {
+    if (f.page === 1 && !f.ids && (original || f.city || f.category || f.mode)) {
       q(
         `INSERT INTO search_log (device_id, query, country_code, city_slug, category, mode, results)
          VALUES ($1, $2, coalesce($3, (SELECT country_code FROM cities WHERE slug = $4)), $4, $5, $6, $7)`,
-        [req.deviceId, f.q?.slice(0, 120) ?? null, f.country ?? null, f.city ?? null, f.category ?? null, f.mode ?? (f.category ? ((SETTLE_CATEGORIES as readonly string[]).includes(f.category) ? 'settle' : 'visit') : null), total],
+        [req.deviceId, original?.slice(0, 120) ?? null, f.country ?? null, f.city ?? null, f.category ?? null,
+         f.mode ?? (f.category ? ((SETTLE_CATEGORIES as readonly string[]).includes(f.category) ? 'settle' : 'visit') : null), total],
       ).catch(() => {});
     }
-    return { total, page: f.page, pageSize: f.pageSize, featured, results };
+    return { total, page: f.page, pageSize: f.pageSize, featured, results, understood, relaxed, didYouMean };
   });
+
+  /** "Tell us you need this": a search that found nothing becomes a request the team can act on. */
+  app.post('/demand', { config: { rateLimit: { max: 10, timeWindow: '1 hour' } } }, async (req) => {
+    const b = z.object({
+      query: z.string().trim().min(2).max(200), city: z.string().max(80).optional(), category: z.string().max(40).optional(),
+      contact: z.string().trim().max(120).optional(), note: z.string().trim().max(500).optional(),
+    }).parse(req.body);
+    await q(
+      `INSERT INTO demand_requests (query, city_slug, category, contact, note, device_id, user_id) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [b.query, b.city ?? null, b.category ?? null, b.contact ?? null, b.note ?? null, req.deviceId, req.user?.id ?? null],
+    );
+    return { ok: true };
+  });
+
+  /**
+   * The verification receipt: exactly what Karibu checked for this listing and when. Never names staff or shows documents.
+   */
+  async function receipt(listingId: string) {
+    const { rows } = await q(
+      `SELECT v.verification_level AS level, v.verified_at AS "verifiedAt", v.reverify_due AS "reverifyDue",
+              v.whatsapp_verified_at AS "whatsappConfirmedAt", v.email_verified_at AS "emailConfirmedAt", v.licence_number IS NOT NULL AS "hasLicence",
+              l.last_confirmed_at AS "lastConfirmedAt", l.published_at AS "publishedAt",
+              (SELECT json_agg(json_build_object('type', d.doc_type, 'checkedAt', d.reviewed_at) ORDER BY d.reviewed_at DESC)
+                 FROM vendor_documents d WHERE d.vendor_id = v.id AND d.result = 'accepted') AS documents,
+              (SELECT max(f.submitted_at) FROM field_visits f WHERE f.listing_id = l.id AND f.status = 'submitted') AS "visitedAt",
+              (SELECT max(a.decided_at) FROM staff_approvals a WHERE a.target_id = l.id AND a.kind = 'level3' AND a.status = 'approved') AS "secondApprovalAt"
+         FROM listings l JOIN vendors v ON v.id = l.vendor_id WHERE l.id = $1`,
+      [listingId],
+    );
+    const r = rows[0];
+    if (!r) return null;
+    const checks = [
+      { key: 'contact', label: 'Contact confirmed: WhatsApp or company email belongs to the business', done: !!(r.whatsappConfirmedAt || r.emailConfirmedAt), at: r.whatsappConfirmedAt ?? r.emailConfirmedAt },
+      { key: 'identity', label: 'Owner identity and business registration checked', done: r.level >= 1, at: r.verifiedAt },
+      { key: 'licence', label: 'Licence and documents checked with the issuer', done: r.level >= 2 || (r.documents?.length ?? 0) > 0, at: r.documents?.[0]?.checkedAt ?? (r.level >= 2 ? r.verifiedAt : null) },
+      { key: 'visit', label: 'Visited in person by our team, then approved by a second person', done: r.level >= 3, at: r.secondApprovalAt ?? r.visitedAt ?? (r.level >= 3 ? r.verifiedAt : null) },
+      { key: 'accurate', label: 'Business confirmed the details are still accurate', done: !!r.lastConfirmedAt, at: r.lastConfirmedAt },
+    ];
+    return { level: r.level, verifiedAt: r.verifiedAt, reverifyDue: r.reverifyDue, checks, documentTypes: (r.documents ?? []).map((d: { type: string }) => d.type) };
+  }
 
   app.get('/listings/:slug', async (req) => {
     const { slug } = z.object({ slug: z.string().max(120) }).parse(req.params);
@@ -230,7 +376,7 @@ export async function publicRoutes(app: FastifyInstance) {
     return {
       listing: {
         ...l, photos: photos.rows, dates: dates.rows, reviews: reviews.rows, paid: paid.rows[0] ?? null,
-        ratingBreakdown, travellerTypes: types.rows, mentions, highlights: highlights.rows,
+        ratingBreakdown, travellerTypes: types.rows, mentions, highlights: highlights.rows, receipt: await receipt(l.id),
       },
     };
   });

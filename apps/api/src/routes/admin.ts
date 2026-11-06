@@ -665,6 +665,27 @@ export async function adminRoutes(app: FastifyInstance) {
     return { recommendations: rows };
   });
 
+  /** Searches that found nothing, where the traveller asked us to find a business. */
+  app.get('/admin/demand', async (req) => {
+    requireStaff(req, 'businesses.view');
+    const { rows } = await q(
+      `SELECT d.id, d.query, d.city_slug AS city, d.category, d.contact, d.note, d.status, d.created_at AS "createdAt",
+              (SELECT count(*) FROM demand_requests x WHERE lower(x.query) = lower(d.query)) AS same
+         FROM demand_requests d ORDER BY d.status = 'open' DESC, d.created_at DESC LIMIT 200`,
+    );
+    return { requests: rows };
+  });
+
+  app.post('/admin/demand/:id', async (req) => {
+    const s = requireStaff(req, 'businesses.support');
+    const { id } = idParam.parse(req.params);
+    const b = z.object({ status: z.enum(['open', 'recruiting', 'filled', 'closed']) }).parse(req.body);
+    const { rows } = await q(`UPDATE demand_requests SET status = $2 WHERE id = $1 RETURNING query`, [id, b.status]);
+    if (!rows[0]) throw notFound();
+    await audit(req, s, `Traveller request marked ${b.status}`, { type: 'demand', id, label: rows[0].query });
+    return { ok: true };
+  });
+
   // ---------------- Plans and billing ----------------
   app.get('/admin/billing', async (req) => {
     const s = requireStaff(req, 'billing.view');

@@ -323,6 +323,7 @@ export async function seed() {
     for (const [g, item, area, lo, hi] of prices) {
       await c.query(`INSERT INTO price_checks (city_id, group_name, item, area, currency, low, high, checked_on, is_example) VALUES ($1,$2,$3,$4,'KES',$5,$6, current_date, true)`, [nbo.rows[0].id, g, item, area, lo, hi]);
     }
+    await seedSeasons(c);
     // Example "I paid this much" reports so the price board isn't empty in development. Flagged is_example.
     await c.query(`DELETE FROM price_reports WHERE is_example`);
     const paid: Array<[string, string, number, string | null, string | null, string | null]> = [
@@ -354,6 +355,24 @@ export async function seed() {
       [adminId],
     );
   });
+}
+
+/** Typical seasons, worded as patterns ("usually") and reviewed by the content team. Used to explain suggestions. */
+export async function seedSeasons(c: { query: (s: string, p?: unknown[]) => Promise<unknown> }) {
+  await c.query(`DELETE FROM season_notes WHERE country_code = 'KE'`);
+  const notes: [string | null, number[], string, string | null, string][] = [
+    ['maasai-mara', [7, 8, 9, 10], 'highlight', 'safari', 'The wildebeest migration is usually in the Mara from about July to October, with river crossings most likely in August and September.'],
+    ['maasai-mara', [7, 8, 9, 10], 'busy', 'stay', 'Mara camps fill up in migration season. Book early.'],
+    ['amboseli', [1, 2, 6, 7, 8, 9, 10], 'highlight', 'safari', 'Dry months usually give the clearest views of Kilimanjaro from Amboseli, best in the early morning.'],
+    ['diani', [1, 2, 3, 12], 'highlight', 'stay', 'The coast is usually hot and dry from December to March: good beach weather.'],
+    ['naivasha', [1, 2, 6, 7, 8, 9, 12], 'highlight', 'experience', 'Dry months are usually best for boat trips and walks around Lake Naivasha.'],
+    [null, [3, 4, 5], 'weather', null, 'The long rains usually fall from March to May. Some park roads get muddy, and many camps cost less.'],
+    [null, [10, 11, 12], 'weather', null, 'The short rains usually come around November. Showers are often short.'],
+    [null, [12, 1], 'busy', null, 'Mid-December to early January is the busiest holiday time, especially at the coast. Book early.'],
+  ];
+  for (const [city, months, kind, category, note] of notes) {
+    await c.query(`INSERT INTO season_notes (city_slug, country_code, months, kind, category, note) VALUES ($1, 'KE', $2, $3, $4, $5)`, [city, months, kind, category, note]);
+  }
 }
 
 const ownerEmail = () => (process.env.ADMIN_EMAIL ?? 'admin@karibu.example').trim().toLowerCase();

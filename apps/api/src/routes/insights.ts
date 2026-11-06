@@ -44,7 +44,8 @@ async function compute(s: Staff, days: number) {
         WHERE ${cur('e.created_at')} AND ${vScope} GROUP BY l.category ORDER BY n DESC`, P),
     q(`SELECT mode() WITHIN GROUP (ORDER BY sl.query) AS query, sl.query_key AS key, sl.city_slug AS city, count(*) AS searches,
               round(avg(sl.results), 1) AS "avgResults", max(sl.results) AS "maxResults",
-              mode() WITHIN GROUP (ORDER BY sl.mode) AS mode, count(DISTINCT sl.device_id) AS people
+              mode() WITHIN GROUP (ORDER BY sl.mode) AS mode, count(DISTINCT sl.device_id) AS people,
+              (SELECT count(*) FROM demand_requests d WHERE lower(btrim(d.query)) = sl.query_key) AS asked
          FROM search_log sl WHERE ${cur('sl.at')} AND ${sl} AND sl.query_key IS NOT NULL AND sl.query_key <> ''
         GROUP BY sl.query_key, sl.city_slug HAVING max(sl.results) <= 2
         ORDER BY count(*) DESC LIMIT 15`, P),

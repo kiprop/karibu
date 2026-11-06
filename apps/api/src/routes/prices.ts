@@ -21,7 +21,7 @@ export type Verdict = 'low' | 'fair' | 'high' | 'very_high' | 'unknown';
 const norm = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
 
 /** Find the closest checked price and community summary for an item. Word similarity lets "ugali" match "Plate of ugali with stew". */
-async function references(cityId: number, item: string, currency: string) {
+export async function references(cityId: number, item: string, currency: string) {
   const key = norm(item);
   const [checked, community] = await Promise.all([
     q<Checked>(
@@ -60,7 +60,7 @@ export function judge(amount: number, checked: Checked | null, community: Commun
   return { verdict, typicalLow, typicalHigh, times };
 }
 
-async function cityBySlug(slug: string) {
+export async function cityBySlug(slug: string) {
   const { rows } = await q<{ id: number; name: string; currency: string }>(
     `SELECT c.id, c.name, co.currency FROM cities c JOIN countries co ON co.code = c.country_code WHERE c.slug = $1`,
     [slug],
