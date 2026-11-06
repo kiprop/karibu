@@ -36,6 +36,8 @@ export interface ListingCard {
 }
 
 export interface ListingDetail extends ListingCard {
+  /** Exactly what Karibu checked, and when. */
+  receipt?: { level: number; verifiedAt: string | null; reverifyDue: string | null; checks: { key: string; label: string; done: boolean; at: string | null }[]; documentTypes: string[] } | null;
   description: string | null;
   attributes: Record<string, any>;
   locationIsPrivate: boolean;

@@ -17,7 +17,7 @@ export function BrandLockup({ size = 'md', href = '/' }: { size?: 'md' | 'lg'; h
         <span className={`font-display font-extrabold tracking-tight ${size === 'lg' ? 'text-[28px]' : 'text-[22px]'}`}>
           <span className="sr-only">EI </span>Karibu
         </span>
-        <span className="mt-0.5 hidden text-[10px] font-bold uppercase tracking-[0.14em] text-muted sm:block">by Enkop Intelligence</span>
+        <span className="mt-0.5 hidden text-[10px] font-bold uppercase tracking-[0.14em] whitespace-nowrap text-muted sm:block">by Enkop Intelligence</span>
       </span>
     </span>
   );

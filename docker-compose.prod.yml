@@ -41,6 +41,15 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL}
       ADMIN_NAME: ${ADMIN_NAME:-Karibu Owner}
       STAFF_SECRET_KEY: ${STAFF_SECRET_KEY:-}
+      # Ask Karibu: optional. Without a key, answers are written from Karibu's data by rules (still with sources).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ASK_MODEL: ${ASK_MODEL:-claude-haiku-5-5}
+      USD_TO_KES: ${USD_TO_KES:-129}
+      # Karibu on WhatsApp (Meta Cloud API). Leave empty until the WhatsApp Business number is set up.
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
       MAIL_PROVIDER: ${MAIL_PROVIDER:-resend}
       MAIL_FROM: ${MAIL_FROM:-EI Karibu <karibu@enkopintelligence.com>}
       MAIL_API_KEY: ${MAIL_API_KEY:-}

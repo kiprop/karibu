@@ -3,8 +3,23 @@ import Link from 'next/link';
 import { api } from '@/lib/server-api';
 import { AMENITY_LABEL, CATEGORY_LABEL, SETTLE_CATEGORIES, VISIT_CATEGORIES, isSettle, type Category, type ListingCard as L } from '@/lib/types';
 import { ListingCard } from '@/components/ListingCard';
-import { Empty } from '@/components/bits';
+import { Icon } from '@/components/Icon';
 import { ExploreMap } from './ExploreMap';
+import { NearMe, TellUs } from './SmartBits';
+
+type Understood = { chips: { key: string; label: string }[]; corrections: { from: string; to: string }[]; rest: string; filters: { near?: boolean }; params: Record<string, string> };
+type Relaxed = { without: string; params: Record<string, string>; total: number; results: L[] };
+
+/** The page link without one understood filter, so each chip can be removed. */
+function withoutChip(u: Understood, key: string) {
+  const p = { ...u.params };
+  if (key === 'category') { delete p.category; delete p.subtype; delete p.mode; }
+  else if (key.startsWith('amenity:')) {
+    const a = (p.amenities ?? '').split(',').filter((x) => x && x !== key.slice(8));
+    if (a.length) p.amenities = a.join(','); else delete p.amenities;
+  } else delete p[key];
+  return `/explore?${new URLSearchParams(p)}`;
+}
 
 export const metadata = { title: 'Explore' };
 
@@ -35,14 +50,15 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
   if (picked.length) sp.amenities = picked.join(',');
   const view = sp.view === 'map' ? 'map' : 'list';
   const params = new URLSearchParams();
-  for (const k of ['q', 'country', 'city', 'category', 'mode', 'subtype', 'budget', 'minLevel', 'priceMax', 'amenities', 'sort', 'page']) if (sp[k]) params.set(k, sp[k]!);
+  for (const k of ['q', 'country', 'city', 'category', 'mode', 'subtype', 'budget', 'minLevel', 'priceMax', 'amenities', 'bedrooms', 'furnished', 'month', 'lat', 'lon', 'sort', 'page', 'nl']) if (sp[k]) params.set(k, sp[k]!);
   params.set('pageSize', view === 'map' ? '50' : '24');
   const [data, meta, cities] = await Promise.all([
-    api<{ total: number; page: number; pageSize: number; featured: L[]; results: L[] }>(`/listings?${params}`),
+    api<{ total: number; page: number; pageSize: number; featured: L[]; results: L[]; understood: Understood | null; relaxed: Relaxed | null; didYouMean: string | null }>(`/listings?${params}`),
     api<{ categories: Record<Category, string[]> }>('/meta'),
     api<{ cities: { slug: string; name: string; isLive: boolean; listingCount: number }[] }>('/cities?country=KE'),
   ]);
-  const cat = sp.category as Category | undefined;
+  const u = data.understood;
+  const cat = (sp.category ?? u?.params.category) as Category | undefined;
   // Visiting (short trips) or Settling in (long stays, moving home). A chosen category decides it.
   const mode: 'visit' | 'settle' = cat ? (isSettle(cat) ? 'settle' : 'visit') : sp.mode === 'settle' ? 'settle' : 'visit';
   const modeCats = mode === 'settle' ? SETTLE_CATEGORIES : VISIT_CATEGORIES;
@@ -67,7 +83,21 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
         ))}
       </div>
       <h1 className="font-display text-3xl font-extrabold">{cat ? CATEGORY_LABEL[cat] : sp.q ? `Results for “${sp.q}”` : mode === 'settle' ? 'Settle in' : 'Explore East Africa'}</h1>
-      <p className="mt-1 text-muted">Every listing here was checked by our team before it appeared. {data.total} found.</p>
+      <p className="mt-1 text-muted">Every listing here was checked by our team before it appeared. {data.total} found{sp.sort === 'distance' && sp.lat ? ', nearest first' : ''}.</p>
+
+      {u && u.chips.length ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-panel px-3 py-2.5" aria-label="What we understood">
+          <span className="text-[12.5px] font-semibold text-muted">We understood</span>
+          {u.chips.filter((c) => c.key !== 'near').map((c) => (
+            <Link key={c.key} href={withoutChip(u, c.key)} className="inline-flex items-center gap-1 rounded-md bg-brand-soft px-2 py-1 text-[13px] font-medium text-brand hover:bg-brand/15" aria-label={`Remove ${c.label}`}>
+              {c.label} <Icon name="x" size={13} />
+            </Link>
+          ))}
+          {u.rest ? <span className="text-[12.5px] text-muted">and ranked by “{u.rest}”</span> : null}
+          {u.filters.near && !sp.lat ? <NearMe base={u.params} label="Use my location" /> : null}
+          {u.corrections.length ? <span className="w-full text-[12.5px] text-muted">Read {u.corrections.map((x) => `“${x.from}” as “${x.to}”`).join(', ')}.</span> : null}
+        </div>
+      ) : null}
 
       <nav aria-label="Categories" className="mt-5 flex gap-2 overflow-x-auto pb-1">
         <Link href={qs(sp, { category: undefined, subtype: undefined, amenities: undefined, mode: mode === 'settle' ? 'settle' : undefined })} className={`pill ${!cat ? 'pill-on' : ''}`}>All</Link>
@@ -85,7 +115,8 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
           <input type="hidden" name="view" value={view} />
           <div className="flex flex-col gap-1.5">
             <label htmlFor="f-q" className="label">Search</label>
-            <input id="f-q" name="q" defaultValue={sp.q} className="input" placeholder="Name, park, area" />
+            <input id="f-q" name="q" defaultValue={sp.q} className="input" placeholder="Try “2 bedroom Kilimani under 100k”" />
+            <input type="hidden" name="nl" value="1" />
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="f-city" className="label">Destination</label>
@@ -150,6 +181,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
 
         <div className="min-w-0">
           <div className="mb-4 flex justify-end gap-2" role="group" aria-label="View">
+            <NearMe base={Object.fromEntries(Object.entries(sp).filter(([k, v]) => v && !['lat', 'lon', 'sort', 'page', 'view'].includes(k))) as Record<string, string>} />
             <Link href={qs(sp, { view: undefined })} className={`pill ${view === 'list' ? 'pill-on' : ''}`}>List</Link>
             <Link href={qs(sp, { view: 'map' })} className={`pill ${view === 'map' ? 'pill-on' : ''}`}>Map</Link>
           </div>
@@ -162,9 +194,28 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
             </section>
           ) : null}
           {data.results.length === 0 ? (
-            <Empty title="Nothing matches yet" body="Try fewer filters or another destination. We add verified businesses every week.">
-              <Link href="/recommend" className="font-bold text-brand">Know a great business? Recommend it</Link>
-            </Empty>
+            <div className="flex flex-col gap-5">
+              <div className="rounded-xl border border-line bg-panel p-5">
+                <h2 className="text-lg font-semibold">Nothing matches everything{sp.q ? ` for “${sp.q}”` : ''} yet</h2>
+                {data.didYouMean ? <p className="mt-1 text-[15px]">Did you mean <Link className="font-semibold text-brand underline" href={qs({}, { q: data.didYouMean, nl: '1' })}>{data.didYouMean}</Link>?</p> : null}
+                <p className="mt-1 text-[14px] text-muted">We add verified businesses every week, and we look for the ones travellers ask for.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <TellUs query={sp.q || [cat ? CATEGORY_LABEL[cat] : null, sp.city].filter(Boolean).join(' in ') || 'this'} city={sp.city ?? u?.params.city} category={cat} />
+                  <Link href="/recommend" className="btn-ghost">Know one? Recommend it</Link>
+                </div>
+              </div>
+              {data.relaxed ? (
+                <section aria-label="Close matches">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 className="text-[15px] font-semibold">Without {data.relaxed.without}: {data.relaxed.total} verified</h2>
+                    <Link className="text-[14px] font-semibold text-brand" href={`/explore?${new URLSearchParams(data.relaxed.params)}`}>See all</Link>
+                  </div>
+                  <div className="mt-3 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                    {data.relaxed.results.map((l) => <ListingCard key={l.id} l={l} />)}
+                  </div>
+                </section>
+              ) : null}
+            </div>
           ) : view === 'map' ? (
             <ExploreMap items={data.results.map((l) => ({ id: l.id, lat: l.lat, lon: l.lon, label: l.title, href: `/listing/${l.slug}`, sub: `${l.city} · ${l.subtype}` }))} />
           ) : (

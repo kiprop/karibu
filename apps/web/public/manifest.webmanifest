@@ -1,21 +1,20 @@
 {
-  "name": "EI Karibu: verified travel and living in East Africa",
-  "short_name": "EI Karibu",
-  "start_url": "/",
+  "name": "EI Karibu: your travel companion for East Africa",
+  "short_name": "Karibu",
+  "description": "Verified places, fair prices, safety help and a companion for your trip or move to East Africa.",
+  "start_url": "/today",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#F7F4EF",
-  "theme_color": "#14181D",
+  "background_color": "#F6F6F7",
+  "theme_color": "#1B1B1F",
   "icons": [
-    {
-      "src": "/brand/ei-logo-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/brand/ei-logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    }
+    { "src": "/brand/ei-logo-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/brand/ei-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Today", "url": "/today", "icons": [{ "src": "/brand/ei-logo-192.png", "sizes": "192x192" }] },
+    { "name": "Ask Karibu", "url": "/ask", "icons": [{ "src": "/brand/ei-logo-192.png", "sizes": "192x192" }] },
+    { "name": "Fair prices", "url": "/safety/prices", "icons": [{ "src": "/brand/ei-logo-192.png", "sizes": "192x192" }] },
+    { "name": "Emergency card", "url": "/safety/emergency", "icons": [{ "src": "/brand/ei-logo-192.png", "sizes": "192x192" }] }
   ]
 }

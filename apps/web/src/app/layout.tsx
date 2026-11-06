@@ -1,3 +1,5 @@
+import { cookies } from 'next/headers';
+import { LANG_COOKIE, langFromCookie } from '@/lib/i18n';
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
@@ -19,9 +21,10 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = langFromCookie((await cookies()).get(LANG_COOKIE)?.value);
   return (
-    <html lang="en">
+    <html lang={lang}>
       <body className="min-h-screen">{children}</body>
     </html>
   );

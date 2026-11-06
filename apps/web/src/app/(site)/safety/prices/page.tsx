@@ -24,8 +24,8 @@ const FEEL: Record<string, { t: string; cls: string }> = {
   ripoff: { t: 'Overcharged', cls: 'bg-danger-soft text-danger' },
 };
 
-export default async function Prices({ searchParams }: { searchParams: Promise<{ city?: string }> }) {
-  const { city = 'nairobi' } = await searchParams;
+export default async function Prices({ searchParams }: { searchParams: Promise<{ city?: string; item?: string; amount?: string }> }) {
+  const { city = 'nairobi', item: qItem, amount: qAmount } = await searchParams;
   let board: Board;
   try {
     board = await api<Board>(`/cities/${encodeURIComponent(city)}/prices`, { revalidate: 0 });
@@ -60,7 +60,7 @@ export default async function Prices({ searchParams }: { searchParams: Promise<{
         <p className="mt-4 rounded-xl bg-amber-soft p-3 text-[14px] text-amber"><strong>Includes example figures.</strong> Sample prices and reports are here so you can see how this works. They are replaced by real checks and reports before launch.</p>
       ) : null}
 
-      <div className="mt-6"><FairCheck city={board.city.slug} currency={cur} items={items} /></div>
+      <div id="check" className="mt-6 scroll-mt-20"><FairCheck city={board.city.slug} currency={cur} items={items} initialItem={qItem?.slice(0, 80)} initialAmount={qAmount?.replace(/\D/g, '').slice(0, 9)} /></div>
 
       <Link href={`/safety/prices/add?city=${board.city.slug}`} className="mt-6 flex items-center justify-between gap-4 rounded-2xl p-5 text-white media-stay">
         <span>

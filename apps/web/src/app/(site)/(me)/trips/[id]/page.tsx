@@ -11,7 +11,7 @@ import { shortDate } from '@/lib/format';
 const MapView = dynamic(() => import('@/components/MapView').then((m) => m.MapView), { ssr: false, loading: () => <div className="h-[360px] animate-pulse rounded-2xl bg-soft" /> });
 
 type Item = { id: string; day: string | null; timeLabel: string | null; note: string | null; listingId: string | null; slug: string | null; title: string | null; city: string | null; lat: number | null; lon: number | null; available: boolean; whatsapp: string | null };
-type Trip = { id: string; title: string; startsOn: string | null; endsOn: string | null; notes: string | null; shareToken: string | null; items: Item[] };
+type Trip = { id: string; title: string; startsOn: string | null; endsOn: string | null; notes: string | null; shareToken: string | null; items: Item[]; isOwner: boolean; editToken: string | null; people: { id: string; name: string; owner: boolean }[] | null };
 
 function daysBetween(a: string, b: string) {
   const out: string[] = [];
@@ -76,6 +76,18 @@ export default function TripPage({ params }: { params: Promise<{ id: string }> }
     const r = await call<{ shareToken: string | null }>(`/me/trips/${id}/share`, { body: { enabled: !trip!.shareToken } });
     setTrip({ ...trip!, shareToken: r.shareToken });
   }
+  const [inviteCopied, setInviteCopied] = useState(false);
+  async function toggleInvite() {
+    const r = await call<{ editToken: string | null }>(`/me/trips/${id}/invite`, { body: { enabled: !trip!.editToken } });
+    setTrip({ ...trip!, editToken: r.editToken });
+    load();
+  }
+  async function copyInvite() {
+    const url = `${location.origin}/trips/join/${trip!.editToken}`;
+    await navigator.clipboard?.writeText(url).catch(() => {});
+    setInviteCopied(true);
+    setTimeout(() => setInviteCopied(false), 2000);
+  }
   async function copyLink() {
     const url = `${location.origin}/trips/shared/${trip!.shareToken}`;
     try {
@@ -107,11 +119,27 @@ export default function TripPage({ params }: { params: Promise<{ id: string }> }
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="btn-outline" onClick={toggleShare}><Icon name="share" size={18} />{trip.shareToken ? 'Stop sharing' : 'Share read-only link'}</button>
-          {trip.shareToken ? <button className="btn-dark" onClick={copyLink}>{copied ? 'Link copied' : 'Copy link'}</button> : null}
+          {trip.isOwner ? <button className="btn-outline" onClick={toggleShare}><Icon name="share" size={18} />{trip.shareToken ? 'Stop sharing' : 'Share read-only link'}</button> : null}
+          {trip.shareToken && trip.isOwner ? <button className="btn-dark" onClick={copyLink}>{copied ? 'Link copied' : 'Copy link'}</button> : null}
           <Link href="/explore" className="btn-primary"><Icon name="plus" size={18} />Add places</Link>
         </div>
       </div>
+
+      <section aria-label="Plan together" className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3">
+        <Icon name="people" size={18} className="text-brand" />
+        <span className="min-w-0 flex-1 text-[14px]">
+          <b>Plan together.</b>{' '}
+          {(trip.people?.length ?? 1) > 1
+            ? <>Planning with {trip.people!.filter((x) => !x.owner).map((x) => x.name).join(', ')}{trip.isOwner ? '' : `, made by ${trip.people!.find((x) => x.owner)?.name}`}.</>
+            : trip.isOwner ? 'Invite family or friends to add places and notes. Useful when relatives plan a visit home together.' : null}
+        </span>
+        {trip.isOwner ? (
+          <>
+            <button className="btn-outline h-9 min-h-0 text-[13px]" onClick={toggleInvite}>{trip.editToken ? 'Turn off invite link' : 'Get invite link'}</button>
+            {trip.editToken ? <button className="btn-dark h-9 min-h-0 text-[13px]" onClick={copyInvite}>{inviteCopied ? 'Copied' : 'Copy invite link'}</button> : null}
+          </>
+        ) : null}
+      </section>
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_420px]">
         <div className="flex flex-col gap-6">
@@ -159,7 +187,7 @@ export default function TripPage({ params }: { params: Promise<{ id: string }> }
             </div>
             <button className="btn-dark">Add</button>
           </form>
-          <button onClick={deleteTrip} className="self-start text-[14px] font-bold text-danger">Delete trip</button>
+          {trip.isOwner ? <button onClick={deleteTrip} className="self-start text-[14px] font-bold text-danger">Delete trip</button> : null}
         </div>
         <div className="lg:sticky lg:top-24 lg:self-start">
           {points.length ? <MapView points={points} height={420} route /> : <div className="card p-6 text-muted">Places you add appear on the map.</div>}

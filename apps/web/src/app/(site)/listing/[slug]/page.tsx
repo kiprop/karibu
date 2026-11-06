@@ -210,14 +210,33 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
                 </div>
               </div>
             ) : null}
-            <div className="mt-6 flex gap-3 rounded-2xl bg-teal-soft p-4">
-              <Icon name="shield" className="mt-0.5 shrink-0 text-teal" size={24} />
-              <div className="text-[15px]">
-                <strong className="text-teal">{LEVEL_LABEL[l.verificationLevel]}{l.verifiedAt ? ` · verified ${shortDate(l.verifiedAt)}` : ''}</strong>
-                <p className="mt-0.5">{LEVEL_DETAIL[l.verificationLevel]} <Link href="/how-we-verify" className="font-bold underline">How we verify</Link></p>
-                {confirmedDays != null ? <p className="mt-1 text-muted">Details confirmed by the business {confirmedDays === 0 ? 'today' : `${confirmedDays} days ago`}.</p> : null}
-              </div>
-            </div>
+            <details className="group mt-6 rounded-2xl border border-teal/30 bg-teal-soft/60" id="verified">
+              <summary className="flex cursor-pointer list-none gap-3 p-4">
+                <Icon name="shield" className="mt-0.5 shrink-0 text-teal" size={24} />
+                <div className="min-w-0 flex-1 text-[15px]">
+                  <strong className="text-teal">{LEVEL_LABEL[l.verificationLevel]}{l.verifiedAt ? ` · verified ${shortDate(l.verifiedAt)}` : ''}</strong>
+                  <p className="mt-0.5">{LEVEL_DETAIL[l.verificationLevel]}</p>
+                  {confirmedDays != null ? <p className="mt-1 text-muted">Details confirmed by the business {confirmedDays === 0 ? 'today' : `${confirmedDays} days ago`}.</p> : null}
+                  <span className="mt-1 inline-block text-[13px] font-semibold text-teal group-open:hidden">See exactly what we checked ▾</span>
+                </div>
+              </summary>
+              {l.receipt ? (
+                <div className="border-t border-teal/20 px-4 pb-4 pt-3">
+                  <p className="text-[12px] font-semibold uppercase tracking-wide text-muted">Verification receipt</p>
+                  <ul className="mt-2 flex flex-col gap-2">
+                    {l.receipt.checks.map((c) => (
+                      <li key={c.key} className="flex items-start gap-2.5 text-[14px]">
+                        <span className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full ${c.done ? 'bg-teal text-white' : 'border border-dashed border-muted/60'}`}>{c.done ? <Icon name="check" size={10} strokeWidth={3.5} /> : null}</span>
+                        <span className={c.done ? '' : 'text-muted'}>{c.label}{c.done && c.at ? <span className="text-muted"> · {shortDate(c.at)}</span> : ''}{!c.done ? ' · not yet' : ''}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 text-[12.5px] text-muted">
+                    {l.receipt.reverifyDue ? `Checked again by ${shortDate(l.receipt.reverifyDue)}. ` : ''}Verification is free and can’t be bought; paid plans never change it. Documents stay private. <Link href="/how-we-verify" className="font-semibold underline">How we verify</Link>
+                  </p>
+                </div>
+              ) : null}
+            </details>
           </section>
 
           <Facts l={l} />

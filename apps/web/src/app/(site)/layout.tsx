@@ -3,10 +3,16 @@ import { getMe } from '@/lib/server-api';
 import { SessionProvider } from '@/components/Session';
 import { Icon } from '@/components/Icon';
 import { BrandLockup } from '@/components/Brand';
+import { cookies } from 'next/headers';
+import { AskLauncher } from '@/components/AskKaribu';
+import { LangSwitch } from '@/components/LangSwitch';
+import { ServiceWorker } from '@/components/ServiceWorker';
+import { LANG_COOKIE, langFromCookie, t } from '@/lib/i18n';
 
 /** The public site: header, phone navigation and footer. The staff console (/admin) has its own frame. */
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const me = await getMe();
+  const lang = langFromCookie((await cookies()).get(LANG_COOKIE)?.value);
   const hasBusiness = (me.vendors?.length ?? 0) > 0;
   return (
     <SessionProvider me={me}>
@@ -17,32 +23,33 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         <div className="container-k flex h-14 items-center gap-4">
           <BrandLockup />
           <nav aria-label="Main" className="ml-2 hidden items-center gap-0.5 whitespace-nowrap lg:flex">
-            <Link className="btn-ghost min-h-[34px] px-3 text-[14px]" href="/explore">Explore</Link>
-            <Link className="btn-ghost min-h-[34px] px-3 text-[14px]" href="/settle">Settle in</Link>
-            <Link className="btn-ghost min-h-[34px] px-3 text-[14px]" href="/safety/prices">Fair prices</Link>
-            <Link className="btn-ghost min-h-[34px] px-3 text-[14px]" href="/safety">Travel smart</Link>
+            <Link className="btn-ghost min-h-[34px] px-3 text-[14px]" href="/explore">{t(lang, 'Explore')}</Link>
+            <Link className="btn-ghost min-h-[34px] px-3 text-[14px]" href="/settle">{t(lang, 'Settle in')}</Link>
+            <Link className="btn-ghost min-h-[34px] px-3 text-[14px]" href="/safety/prices">{t(lang, 'Fair prices')}</Link>
+            <Link className="btn-ghost min-h-[34px] px-3 text-[14px]" href="/safety">{t(lang, 'Travel smart')}</Link>
           </nav>
           <div className="ml-auto flex items-center gap-2 whitespace-nowrap">
             <Link href="/safety" className="btn-ghost min-h-[34px] px-2.5 text-[14px] lg:hidden" aria-label="Travel smart: safety and official links">
               <Icon name="shield" size={20} />
             </Link>
+            <LangSwitch lang={lang} className="hidden 2xl:inline-flex" />
             <Link href="/share" className="btn-primary hidden min-h-[34px] px-4 text-[14px] lg:inline-flex">
-              <Icon name="plus" size={18} /> Share
+              <Icon name="plus" size={18} /> {t(lang, 'Share')}
             </Link>
-            <Link href="/saved" className="btn-ghost hidden min-h-[34px] px-3 text-[14px] lg:inline-flex" aria-label="Saved and trips">
-              <Icon name="heart" size={18} /> <span className="hidden xl:inline">Saved</span>
+            <Link href="/today" className="btn-ghost hidden min-h-[34px] px-3 text-[14px] lg:inline-flex" aria-label="My Karibu: today, saved places and trips">
+              <Icon name="compass" size={18} /> <span className="hidden xl:inline">{t(lang, 'My Karibu')}</span>
             </Link>
             {hasBusiness ? (
-              <Link href="/vendor" className="btn-ghost min-h-[34px] px-3 text-[14px]"><Icon name="briefcase" size={18} /> <span className="hidden sm:inline">My business</span></Link>
+              <Link href="/vendor" className="btn-ghost min-h-[34px] px-3 text-[14px]"><Icon name="briefcase" size={18} /> <span className="hidden sm:inline">{t(lang, 'My business')}</span></Link>
             ) : (
-              <Link href="/vendor" className="btn-ghost hidden min-h-[34px] px-3 text-[14px] xl:inline-flex">List your business</Link>
+              <Link href="/vendor" className="btn-ghost hidden min-h-[34px] px-3 text-[14px] xl:inline-flex">{t(lang, 'List your business')}</Link>
             )}
             {me.user ? (
               <Link href="/account" className="btn-outline min-h-[34px] px-3 text-[14px]">
-                <Icon name="user" size={18} /> <span className="hidden sm:inline">Account</span>
+                <Icon name="user" size={18} /> <span className="hidden sm:inline">{t(lang, 'Account')}</span>
               </Link>
             ) : (
-              <Link href="/signin" className="btn-dark min-h-[34px] px-4 text-[14px]">Sign in</Link>
+              <Link href="/signin" className="btn-dark min-h-[34px] px-4 text-[14px]">{t(lang, 'Sign in')}</Link>
             )}
           </div>
         </div>
@@ -53,9 +60,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         <div className="grid grid-cols-5 text-[11px] font-bold">
           {[
             ['/explore', 'search', 'Explore'],
-            ['/safety/prices', 'tag', 'Prices'],
+            ['/today', 'compass', 'Today'],
             ['/share', 'plus', 'Share'],
-            ['/settle', 'home', 'Settle in'],
+            ['/safety/prices', 'tag', 'Prices'],
             ['/saved', 'heart', 'Saved'],
           ].map(([href, icon, label]) => (
             <Link key={href} href={href} className="flex min-h-[60px] flex-col items-center justify-center gap-1 text-muted">
@@ -64,7 +71,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
               ) : (
                 <Icon name={icon} size={22} />
               )}
-              <span className={href === '/share' ? 'text-brand' : ''}>{label}</span>
+              <span className={href === '/share' ? 'text-brand' : ''}>{t(lang, label)}</span>
             </Link>
           ))}
         </div>
@@ -93,10 +100,13 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
             <Link href="/how-we-verify">How we verify</Link>
           </div>
         </div>
-        <div className="container-k pb-8 text-[12px] text-muted">
+        <div className="container-k flex flex-wrap items-center gap-3 pb-8 text-[12px] text-muted">
+          <LangSwitch lang={lang} />
           Karibu is an information service. Businesses deliver their own services and agree prices and payment directly with you.
         </div>
       </footer>
+          <AskLauncher />
+          <ServiceWorker />
         </SessionProvider>
   );
 }

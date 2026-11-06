@@ -1,20 +1,25 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { call } from '@/lib/client-api';
 import { Verdict, type FairResult } from './Verdict';
 
 /** "Is this price fair?" Type what you were quoted and get an instant comparison. */
-export function FairCheck({ city, currency, items }: { city: string; currency: string; items: string[] }) {
-  const [item, setItem] = useState('');
-  const [amount, setAmount] = useState('');
+export function FairCheck({ city, currency, items, initialItem = '', initialAmount = '' }: { city: string; currency: string; items: string[]; initialItem?: string; initialAmount?: string }) {
+  const [item, setItem] = useState(initialItem);
+  const [amount, setAmount] = useState(initialAmount);
   const [r, setR] = useState<FairResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function check(e: React.FormEvent) {
-    e.preventDefault();
+  // Arriving from the Today screen or Ask Karibu with a quote: check it straight away.
+  useEffect(() => {
+    if (initialItem && initialAmount) check();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function check(e?: React.FormEvent) {
+    e?.preventDefault();
     setErr(null);
     setBusy(true);
     try {

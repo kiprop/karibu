@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getMe } from '@/lib/server-api';
 import { Icon } from '@/components/Icon';
+import { Suspense } from 'react';
 import { VendorDashboard } from './VendorDashboard';
 
 export const metadata = { title: 'For businesses' };
@@ -8,7 +9,7 @@ export const metadata = { title: 'For businesses' };
 export default async function VendorHome() {
   const me = await getMe();
   // Signed in: the dashboard, which starts with "Tell us about your business" if they don't have one yet.
-  if (me.user) return <VendorDashboard />;
+  if (me.user) return <Suspense><VendorDashboard /></Suspense>;
   return (
     <div>
       <section className="bg-gradient-to-b from-brand-soft to-ground">
@@ -24,7 +25,7 @@ export default async function VendorHome() {
       </section>
       <section className="container-k mt-10 grid gap-4 md:grid-cols-4">
         {[
-          ['phone', 'Sign in', 'With your business mobile or company email. No password.'],
+          ['phone', 'Create your account', 'With your business mobile or company email and a password.'],
           ['plus', 'Add your listing', 'Photos, prices, what’s included and your WhatsApp.'],
           ['shield', 'We verify you', 'Free checks of identity, licence and, for some, a visit.'],
           ['chat', 'Get enquiries', 'Travellers message you directly with a reference code.'],

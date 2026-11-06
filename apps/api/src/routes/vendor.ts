@@ -298,7 +298,41 @@ export async function vendorRoutes(app: FastifyInstance) {
               (SELECT round(avg(r.rating)::numeric,1) FROM reviews r JOIN listings l ON l.id = r.listing_id WHERE l.vendor_id = $1 AND r.status='published') AS rating`,
       [vendor.id],
     );
-    return { weekly: rows, totals: totals.rows[0] };
+    const [extra, perListing, heat, opportunities] = await Promise.all([
+      q(
+        `SELECT (SELECT coalesce(sum(lv.views), 0) FROM listing_views lv JOIN listings l ON l.id = lv.listing_id WHERE l.vendor_id = $1 AND lv.day > current_date - 30) AS "views30d",
+                (SELECT coalesce(sum(lv.views), 0) FROM listing_views lv JOIN listings l ON l.id = lv.listing_id WHERE l.vendor_id = $1 AND lv.day BETWEEN current_date - 60 AND current_date - 31) AS "viewsPrev30d",
+                (SELECT count(*) FROM enquiries WHERE vendor_id = $1 AND created_at BETWEEN now() - interval '60 days' AND now() - interval '30 days') AS "enquiriesPrev30d",
+                (SELECT count(*) FROM reviews r JOIN listings l ON l.id = r.listing_id WHERE l.vendor_id = $1 AND r.status = 'published' AND r.vendor_reply IS NULL) AS "unanswered",
+                (SELECT round(avg(r.recommend::int) * 100) FROM reviews r JOIN listings l ON l.id = r.listing_id WHERE l.vendor_id = $1 AND r.status = 'published' AND r.recommend IS NOT NULL) AS "recommendPct",
+                (SELECT count(*) FROM price_reports p JOIN listings l ON l.id = p.listing_id WHERE l.vendor_id = $1 AND NOT p.is_hidden) AS "priceReports"`,
+        [vendor.id],
+      ),
+      q(
+        `SELECT l.id, l.title, l.slug, l.status,
+                (SELECT coalesce(sum(views), 0) FROM listing_views WHERE listing_id = l.id AND day > current_date - 30) AS views,
+                (SELECT count(*) FROM enquiries WHERE listing_id = l.id AND created_at > now() - interval '30 days') AS enquiries,
+                (SELECT count(*) FROM favourites WHERE listing_id = l.id) AS saves
+           FROM listings l WHERE l.vendor_id = $1 ORDER BY enquiries DESC, views DESC`,
+        [vendor.id],
+      ),
+      q(
+        `SELECT extract(isodow FROM created_at AT TIME ZONE 'Africa/Nairobi')::int AS dow, (extract(hour FROM created_at AT TIME ZONE 'Africa/Nairobi')::int / 3) AS slot, count(*) AS n
+           FROM enquiries WHERE vendor_id = $1 AND created_at > now() - interval '90 days' GROUP BY 1, 2`,
+        [vendor.id],
+      ),
+      // Opportunities: what travellers searched for in this business's places and categories but found little.
+      q(
+        `SELECT mode() WITHIN GROUP (ORDER BY sl.query) AS query, sl.city_slug AS city, count(*) AS searches
+           FROM search_log sl
+          WHERE sl.at > now() - interval '60 days' AND sl.query_key IS NOT NULL AND sl.query_key <> ''
+            AND sl.city_slug IN (SELECT c.slug FROM listings l JOIN cities c ON c.id = l.city_id WHERE l.vendor_id = $1)
+            AND (sl.category IS NULL OR sl.category IN (SELECT category::text FROM listings WHERE vendor_id = $1))
+          GROUP BY sl.query_key, sl.city_slug HAVING max(sl.results) <= 2 ORDER BY count(*) DESC LIMIT 6`,
+        [vendor.id],
+      ),
+    ]);
+    return { weekly: rows, totals: { ...totals.rows[0], ...extra.rows[0] }, perListing: perListing.rows, heat: heat.rows, opportunities: opportunities.rows };
   });
 
   app.get('/vendor/enquiries', async (req) => {
@@ -315,8 +349,11 @@ export async function vendorRoutes(app: FastifyInstance) {
   app.get('/vendor/reviews', async (req) => {
     const { vendor } = await myVendor(req);
     const { rows } = await q(
-      `SELECT r.id, r.rating, r.body, r.vendor_reply AS "vendorReply", r.created_at AS "createdAt", l.title AS listing
-         FROM reviews r JOIN listings l ON l.id = r.listing_id WHERE l.vendor_id = $1 ORDER BY r.created_at DESC`,
+      `SELECT r.id, r.rating, r.body, r.vendor_reply AS "vendorReply", r.created_at AS "createdAt", l.title AS listing, l.slug,
+              r.recommend, r.traveller_type AS "travellerType", (r.enquiry_id IS NOT NULL) AS contacted, r.status,
+              coalesce(split_part(u.display_name, ' ', 1), 'Traveller') AS author
+         FROM reviews r JOIN listings l ON l.id = r.listing_id LEFT JOIN users u ON u.id = r.user_id
+        WHERE l.vendor_id = $1 ORDER BY r.vendor_reply IS NULL DESC, r.created_at DESC`,
       [vendor.id],
     );
     return { reviews: rows };

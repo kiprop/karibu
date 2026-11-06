@@ -4,6 +4,9 @@ import type { ListingCard as L } from '@/lib/types';
 import { ListingCard } from '@/components/ListingCard';
 import { CATEGORY_ICON, Icon } from '@/components/Icon';
 import { HeroSearch } from '@/components/HeroSearch';
+import { Suggestions } from '@/components/Suggestions';
+import { cookies } from 'next/headers';
+import { LANG_COOKIE, langFromCookie, t } from '@/lib/i18n';
 
 type Country = { code: string; name: string; isLive: boolean; launchWave: number };
 
@@ -42,6 +45,7 @@ function Row({ title, href, items }: { title: string; href: string; items: L[] }
 }
 
 export default async function Home() {
+  const lang = langFromCookie((await cookies()).get(LANG_COOKIE)?.value);
   const [{ countries }, safaris, stays, rated, settle] = await Promise.all([
     api<{ countries: Country[] }>('/countries'),
     api<{ results: L[] }>('/listings?category=safari&pageSize=10'),
@@ -56,13 +60,12 @@ export default async function Home() {
         <div className="container-k pb-10 pt-12 sm:pt-16">
           <p className="eyebrow text-brand">{countries.map((c) => c.name).join(' · ')}</p>
           <h1 className="mt-3 max-w-3xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-[54px]">
-            East Africa without the guesswork.
+            {t(lang, 'East Africa without the guesswork.')}
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-muted">
-            Here for a week or for good? Stays, game drives and drivers, plus homes, furniture and home services, all checked by our team.
-            Compare honestly, see what people really paid, then message them directly.
+            {t(lang, 'Here for a week or for good? Stays, game drives and drivers, plus homes, furniture and home services, all checked by our team. Compare honestly, see what people really paid, then message them directly.')}
           </p>
-          <HeroSearch />
+          <HeroSearch lang={lang} />
           <div className="mt-5 flex flex-wrap gap-2" aria-label="Destinations">
             {countries.map((c) =>
               c.isLive ? (
@@ -89,6 +92,23 @@ export default async function Home() {
           ))}
         </div>
       </section>
+
+      <section className="container-k mt-10" aria-label="Your travel companion">
+        <div className="grid gap-3 md:grid-cols-3">
+          {[
+            ['/today', 'compass', 'Your trip, day by day', 'Add your dates. Karibu shows what to sort before you fly, your plan each morning, and what’s in season.'],
+            ['/ask', 'chat', 'Ask Karibu anything', '“Is 6,500 fair for a taxi from JKIA?” Answers from checked prices, verified businesses and official sites.'],
+            ['/plan?mode=settle', 'home', 'Moving home?', 'A first-month plan: SIM and M-Pesa, a verified home, internet, furniture, help at home.'],
+          ].map(([href, icon, title, body]) => (
+            <Link key={href} href={href} className="group flex gap-3 rounded-xl border border-line bg-panel p-4 hover:border-muted/40">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand"><Icon name={icon} size={20} /></span>
+              <span><span className="block font-semibold group-hover:underline">{title}</span><span className="mt-0.5 block text-[13.5px] text-muted">{body}</span></span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <div className="container-k mt-12"><Suggestions title="Suggested for you" limit={6} /></div>
 
       <Row title="Game drives and safaris" href="/explore?category=safari" items={safaris.results} />
 

@@ -300,7 +300,8 @@ export async function publicRoutes(app: FastifyInstance) {
     const r = rows[0];
     if (!r) return null;
     const checks = [
-      { key: 'contact', label: 'Contact confirmed: WhatsApp or company email belongs to the business', done: !!(r.whatsappConfirmedAt || r.emailConfirmedAt), at: r.whatsappConfirmedAt ?? r.emailConfirmedAt },
+      // Level 1 includes the contact check, so a verified business always shows it done.
+      { key: 'contact', label: 'Contact confirmed: WhatsApp or company email belongs to the business', done: !!(r.whatsappConfirmedAt || r.emailConfirmedAt) || r.level >= 1, at: r.whatsappConfirmedAt ?? r.emailConfirmedAt ?? r.verifiedAt },
       { key: 'identity', label: 'Owner identity and business registration checked', done: r.level >= 1, at: r.verifiedAt },
       { key: 'licence', label: 'Licence and documents checked with the issuer', done: r.level >= 2 || (r.documents?.length ?? 0) > 0, at: r.documents?.[0]?.checkedAt ?? (r.level >= 2 ? r.verifiedAt : null) },
       { key: 'visit', label: 'Visited in person by our team, then approved by a second person', done: r.level >= 3, at: r.secondApprovalAt ?? r.visitedAt ?? (r.level >= 3 ? r.verifiedAt : null) },

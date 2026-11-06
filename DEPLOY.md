@@ -94,6 +94,13 @@ Staff sessions end after 30 minutes without activity (`STAFF_IDLE_MINUTES`) and 
 
 For an extra lock, you can put **Cloudflare Access** (Zero Trust, free for up to 50 users) in front of `karibu.enkopintelligence.com/admin*` and `/api/staff*`, `/api/admin*`, allowing only your staff emails.
 
+## 8. Ask Karibu and WhatsApp (optional)
+
+Ask Karibu works without any extra setup: it answers from Karibu's own data (fair prices, verified listings, the watchlist, Travel smart pages and official links) and always lists its sources.
+
+- **Smoother wording:** set `ANTHROPIC_API_KEY`. The model only rewords the answer Karibu already built; it can't add facts, prices or rules, and emergencies are never reworded.
+- **Karibu on WhatsApp:** create a WhatsApp Business app in Meta for Developers, add a phone number, then set `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, a `WHATSAPP_VERIFY_TOKEN` you choose, and the app's `WHATSAPP_APP_SECRET`. Point the webhook at `https://karibu.enkopintelligence.com/api/webhooks/whatsapp` with that verify token and subscribe to `messages`. Until then, replies are written to the api log.
+
 ## Updating
 
 ```bash
